@@ -57,7 +57,7 @@ Reload your tmux configuration: `tmux source-file ~/.tmux.conf`
 
 1. Press your configured key binding (e.g., `Alt-w`).
 2. An fzf window will pop up listing all sessions (except the current one).
-3. The last session is shown first for quick switching.
+3. Sessions are sorted by recency (most recently used first) and show relative time (e.g., "5m ago", "2h ago") to help identify stale sessions.
 
 ### Keybindings inside the picker
 
