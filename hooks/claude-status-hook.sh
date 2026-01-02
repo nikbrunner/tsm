@@ -24,7 +24,7 @@ case "$HOOK_TYPE" in
         echo "done:$TIMESTAMP" > "$STATUS_FILE"
         # Play notification sound (macOS)
         if command -v afplay &>/dev/null; then
-            afplay /System/Library/Sounds/Glass.aiff 2>/dev/null &
+            afplay /System/Library/Sounds/Pop.aiff 2>/dev/null &
         fi
         ;;
 esac
