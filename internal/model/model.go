@@ -549,7 +549,7 @@ func (m Model) View() string {
 
 	// Header
 	b.WriteString(ui.HeaderStyle.Render("tmux sessions"))
-	b.WriteString("\n")
+	b.WriteString("\n\n")
 
 	// Session list
 	sessionNum := 0
@@ -570,7 +570,7 @@ func (m Model) View() string {
 
 	// Empty state
 	if len(m.items) == 0 {
-		b.WriteString("\n  No other sessions available\n\n")
+		b.WriteString("  No other sessions available\n")
 	}
 
 	b.WriteString("\n")
@@ -582,11 +582,12 @@ func (m Model) View() string {
 		} else {
 			b.WriteString(ui.MessageStyle.Render(m.message))
 		}
+		b.WriteString("\n")
 	} else if m.mode == ModeCreate {
-		b.WriteString(ui.InputPromptStyle.Render("New session: "))
+		b.WriteString(ui.InputPromptStyle.Render(" New session: "))
 		b.WriteString(m.input.View())
+		b.WriteString("\n")
 	}
-	b.WriteString("\n")
 
 	// Help line
 	switch m.mode {

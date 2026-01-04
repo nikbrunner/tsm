@@ -30,6 +30,10 @@ case "$HOOK_TYPE" in
             afplay /System/Library/Sounds/Pop.aiff 2>/dev/null &
         fi
         ;;
+    "SessionEnd")
+        # Clean up status file when Claude session ends
+        rm -f "$STATUS_FILE"
+        ;;
 esac
 
 exit 0

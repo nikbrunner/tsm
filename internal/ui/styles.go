@@ -13,17 +13,34 @@ var (
 	ColorClaude    = lipgloss.Color("209") // Claude orange
 )
 
+// Border characters (brutalist)
+var (
+	BorderColor = lipgloss.Color("238")
+	LineHoriz   = lipgloss.NewStyle().Foreground(BorderColor).Render("─")
+	LineVert    = lipgloss.NewStyle().Foreground(BorderColor).Render("│")
+	CornerTL    = lipgloss.NewStyle().Foreground(BorderColor).Render("┌")
+	CornerTR    = lipgloss.NewStyle().Foreground(BorderColor).Render("┐")
+	CornerBL    = lipgloss.NewStyle().Foreground(BorderColor).Render("└")
+	CornerBR    = lipgloss.NewStyle().Foreground(BorderColor).Render("┘")
+	TeeLeft     = lipgloss.NewStyle().Foreground(BorderColor).Render("├")
+	TeeRight    = lipgloss.NewStyle().Foreground(BorderColor).Render("┤")
+)
+
 // Styles
 var (
 	// Container styles
 	AppStyle = lipgloss.NewStyle().
+			Padding(0, 0)
+
+	BoxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(BorderColor).
 			Padding(0, 1)
 
 	HeaderStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(ColorPrimary).
-			Padding(0, 1).
-			MarginBottom(1)
+			Padding(0, 1)
 
 	FooterStyle = lipgloss.NewStyle().
 			Foreground(ColorSecondary).
@@ -109,4 +126,39 @@ func FormatClaudeStatus(state string) string {
 	default:
 		return ""
 	}
+}
+
+// HorizontalLine creates a horizontal line of specified width
+func HorizontalLine(width int) string {
+	line := ""
+	for i := 0; i < width; i++ {
+		line += "─"
+	}
+	return lipgloss.NewStyle().Foreground(BorderColor).Render(line)
+}
+
+// BoxTop creates a top border with optional title
+func BoxTop(width int, title string) string {
+	if title == "" {
+		return CornerTL + HorizontalLine(width-2) + CornerTR
+	}
+	titleStyled := " " + HeaderStyle.Render(title) + " "
+	// Account for ANSI codes in title length calculation
+	titleLen := len(title) + 2
+	leftLen := 2
+	rightLen := width - leftLen - titleLen - 2
+	if rightLen < 0 {
+		rightLen = 0
+	}
+	return CornerTL + HorizontalLine(leftLen) + titleStyled + HorizontalLine(rightLen) + CornerTR
+}
+
+// BoxBottom creates a bottom border
+func BoxBottom(width int) string {
+	return CornerBL + HorizontalLine(width-2) + CornerBR
+}
+
+// BoxSeparator creates a separator line
+func BoxSeparator(width int) string {
+	return TeeLeft + HorizontalLine(width-2) + TeeRight
 }
