@@ -11,6 +11,12 @@ import (
 )
 
 func main() {
+	// Ensure HOME is set (required for config paths)
+	if os.Getenv("HOME") == "" {
+		fmt.Println("Error: HOME environment variable not set")
+		os.Exit(1)
+	}
+
 	// Handle subcommands
 	if len(os.Args) > 1 {
 		switch os.Args[1] {

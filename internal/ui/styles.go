@@ -15,9 +15,8 @@ var (
 	ColorSuccess   = lipgloss.Color("2")  // Green
 	ColorWarning   = lipgloss.Color("3")  // Yellow
 	ColorError     = lipgloss.Color("1")  // Red
-	ColorDim       = lipgloss.Color("8")  // Bright black (dark gray)
-	ColorClaude    = lipgloss.Color("5")  // Magenta (distinctive for Claude)
-	ColorMuted     = lipgloss.Color("8")  // Bright black (dark gray)
+	ColorDim    = lipgloss.Color("8") // Bright black (dark gray)
+	ColorClaude = lipgloss.Color("5") // Magenta (distinctive for Claude)
 )
 
 // Border and padding overhead for the app container
@@ -80,7 +79,7 @@ var (
 				Bold(true)
 
 	ExpandedIcon  = lipgloss.NewStyle().Foreground(ColorPrimary).Render("▼")
-	CollapsedIcon = lipgloss.NewStyle().Foreground(ColorMuted).Render("▶")
+	CollapsedIcon = lipgloss.NewStyle().Foreground(ColorDim).Render("▶")
 
 	TimeStyle = lipgloss.NewStyle().
 			Foreground(ColorDim)
@@ -110,7 +109,7 @@ var (
 			Bold(true)
 
 	HelpDescStyle = lipgloss.NewStyle().
-			Foreground(ColorMuted)
+			Foreground(ColorDim)
 
 	HelpSepStyle = lipgloss.NewStyle().
 			Foreground(ColorDim)

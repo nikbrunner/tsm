@@ -46,7 +46,6 @@ func ListSessions(excludeCurrent string) ([]Session, error) {
 	}
 
 	var sessions []Session
-	now := time.Now()
 
 	for _, line := range lines {
 		parts := strings.SplitN(line, " ", 2)
@@ -70,9 +69,6 @@ func ListSessions(excludeCurrent string) ([]Session, error) {
 			Name:         name,
 			LastActivity: time.Unix(activityUnix, 0),
 		})
-
-		// Keep now for potential future use
-		_ = now
 	}
 
 	// Sort by activity (most recent first)

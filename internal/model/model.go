@@ -124,8 +124,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case errMsg:
-		m.message = fmt.Sprintf("Error: %v", msg.err)
-		m.messageIsError = true
+		m.setError("Error: %v", msg.err)
 		return m, nil
 
 	case clearMessageMsg:
@@ -267,7 +266,7 @@ func (m *Model) handleConfirmKillMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Kill):
 		// Double C-x confirms the kill
-		return m.killCurrent(false)
+		return m.killCurrent()
 	case key.Matches(msg, keys.Cancel):
 		m.mode = ModeNormal
 		m.message = ""
@@ -289,8 +288,7 @@ func (m *Model) handleCreateMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case msg.Type == tea.KeyEnter:
 		name := strings.TrimSpace(m.input.Value())
 		if name == "" {
-			m.message = "Session name cannot be empty"
-			m.messageIsError = true
+			m.setError("Session name cannot be empty")
 			return m, nil
 		}
 		return m.createSession(name)
@@ -390,8 +388,7 @@ func (m *Model) createSessionFromDir(relPath string) (tea.Model, tea.Cmd) {
 	name := strings.ReplaceAll(relPath, "/", "-")
 
 	if err := tmux.CreateSession(name, fullPath); err != nil {
-		m.message = fmt.Sprintf("Error: %v", err)
-		m.messageIsError = true
+		m.setError("Error: %v", err)
 		m.mode = ModeNormal
 		return m, nil
 	}
@@ -401,8 +398,7 @@ func (m *Model) createSessionFromDir(relPath string) (tea.Model, tea.Cmd) {
 
 	// Switch to the new session
 	if err := tmux.SwitchClient(name); err != nil {
-		m.message = fmt.Sprintf("Created but failed to switch: %v", err)
-		m.messageIsError = true
+		m.setError("Created but failed to switch: %v", err)
 		return m, m.loadSessions
 	}
 
@@ -463,13 +459,7 @@ func (m *Model) handleJump(num int) (tea.Model, tea.Cmd) {
 	// Check if we're inside an expanded session - numbers switch to windows
 	if m.cursor >= 0 && m.cursor < len(m.items) {
 		item := m.items[m.cursor]
-		var session *tmux.Session
-
-		if !item.IsSession {
-			session = &m.sessions[item.SessionIndex]
-		} else {
-			session = &m.sessions[item.SessionIndex]
-		}
+		session := &m.sessions[item.SessionIndex]
 
 		if session.Expanded {
 			// Jump to window number within this session
@@ -477,8 +467,7 @@ func (m *Model) handleJump(num int) (tea.Model, tea.Cmd) {
 				if w.Index == num {
 					target := fmt.Sprintf("%s:%d", session.Name, w.Index)
 					if err := tmux.SwitchClient(target); err != nil {
-						m.message = fmt.Sprintf("Error: %v", err)
-						m.messageIsError = true
+						m.setError("Error: %v", err)
 						return m, nil
 					}
 					return m, tea.Quit
@@ -492,8 +481,7 @@ func (m *Model) handleJump(num int) (tea.Model, tea.Cmd) {
 	if sessionIdx >= 0 && sessionIdx < len(m.sessions) {
 		session := m.sessions[sessionIdx]
 		if err := tmux.SwitchClient(session.Name); err != nil {
-			m.message = fmt.Sprintf("Error: %v", err)
-			m.messageIsError = true
+			m.setError("Error: %v", err)
 			return m, nil
 		}
 		return m, tea.Quit
@@ -503,7 +491,7 @@ func (m *Model) handleJump(num int) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) expandCurrent() {
-	if m.cursor < 0 || m.cursor >= len(m.items) {
+	if !m.isCursorValid() {
 		return
 	}
 
@@ -522,8 +510,7 @@ func (m *Model) expandCurrent() {
 		// Load windows
 		windows, err := tmux.ListWindows(session.Name)
 		if err != nil {
-			m.message = fmt.Sprintf("Error loading windows: %v", err)
-			m.messageIsError = true
+			m.setError("Error loading windows: %v", err)
 			return
 		}
 		session.Windows = windows
@@ -533,7 +520,7 @@ func (m *Model) expandCurrent() {
 }
 
 func (m *Model) collapseCurrent() {
-	if m.cursor < 0 || m.cursor >= len(m.items) {
+	if !m.isCursorValid() {
 		return
 	}
 
@@ -559,24 +546,13 @@ func (m *Model) collapseCurrent() {
 }
 
 func (m *Model) selectCurrent() (tea.Model, tea.Cmd) {
-	if m.cursor < 0 || m.cursor >= len(m.items) {
+	if !m.isCursorValid() {
 		return m, nil
 	}
 
-	item := m.items[m.cursor]
-
-	var target string
-	if item.IsSession {
-		target = m.sessions[item.SessionIndex].Name
-	} else {
-		session := m.sessions[item.SessionIndex]
-		window := session.Windows[item.WindowIndex]
-		target = fmt.Sprintf("%s:%d", session.Name, window.Index)
-	}
-
+	target := m.getTargetName(m.items[m.cursor])
 	if err := tmux.SwitchClient(target); err != nil {
-		m.message = fmt.Sprintf("Error: %v", err)
-		m.messageIsError = true
+		m.setError("Error: %v", err)
 		return m, nil
 	}
 
@@ -584,19 +560,16 @@ func (m *Model) selectCurrent() (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) confirmKill() (tea.Model, tea.Cmd) {
-	if m.cursor < 0 || m.cursor >= len(m.items) {
+	if !m.isCursorValid() {
 		return m, nil
 	}
 
 	item := m.items[m.cursor]
+	m.killTarget = m.getTargetName(item)
 
 	if item.IsSession {
-		m.killTarget = m.sessions[item.SessionIndex].Name
 		m.message = fmt.Sprintf("Kill \"%s\"?", m.killTarget)
 	} else {
-		session := m.sessions[item.SessionIndex]
-		window := session.Windows[item.WindowIndex]
-		m.killTarget = fmt.Sprintf("%s:%d", session.Name, window.Index)
 		m.message = fmt.Sprintf("Kill window \"%s\"?", m.killTarget)
 	}
 
@@ -604,8 +577,8 @@ func (m *Model) confirmKill() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *Model) killCurrent(instant bool) (tea.Model, tea.Cmd) {
-	if m.cursor < 0 || m.cursor >= len(m.items) {
+func (m *Model) killCurrent() (tea.Model, tea.Cmd) {
+	if !m.isCursorValid() {
 		return m, nil
 	}
 
@@ -628,8 +601,7 @@ func (m *Model) killCurrent(instant bool) (tea.Model, tea.Cmd) {
 	}
 
 	if err != nil {
-		m.message = fmt.Sprintf("Error: %v", err)
-		m.messageIsError = true
+		m.setError("Error: %v", err)
 	}
 
 	m.mode = ModeNormal
@@ -642,8 +614,7 @@ func (m *Model) killCurrent(instant bool) (tea.Model, tea.Cmd) {
 func (m *Model) createSession(name string) (tea.Model, tea.Cmd) {
 	homeDir := os.Getenv("HOME")
 	if err := tmux.CreateSession(name, homeDir); err != nil {
-		m.message = fmt.Sprintf("Error: %v", err)
-		m.messageIsError = true
+		m.setError("Error: %v", err)
 		m.mode = ModeNormal
 		m.input.Blur()
 		return m, nil
@@ -654,8 +625,7 @@ func (m *Model) createSession(name string) (tea.Model, tea.Cmd) {
 
 	// Switch to the new session
 	if err := tmux.SwitchClient(name); err != nil {
-		m.message = fmt.Sprintf("Created but failed to switch: %v", err)
-		m.messageIsError = true
+		m.setError("Created but failed to switch: %v", err)
 		return m, m.loadSessions
 	}
 
@@ -818,95 +788,124 @@ func fuzzyMatch(text, pattern string) bool {
 	return strings.Contains(textLower, pattern)
 }
 
+// isCursorValid returns true if cursor points to a valid item
+func (m *Model) isCursorValid() bool {
+	return m.cursor >= 0 && m.cursor < len(m.items)
+}
+
+// getTargetName returns the tmux target name for the given item
+func (m *Model) getTargetName(item Item) string {
+	if item.IsSession {
+		return m.sessions[item.SessionIndex].Name
+	}
+	session := m.sessions[item.SessionIndex]
+	window := session.Windows[item.WindowIndex]
+	return fmt.Sprintf("%s:%d", session.Name, window.Index)
+}
+
+// setError sets an error message on the model
+func (m *Model) setError(format string, args ...any) {
+	m.message = fmt.Sprintf(format, args...)
+	m.messageIsError = true
+}
+
 // View implements tea.Model
 func (m Model) View() string {
-	var b strings.Builder
-
-	// Directory picker mode - show custom directory list
 	if m.mode == ModePickDirectory {
-		usedLines := 0
+		return m.viewPickDirectory()
+	}
+	return m.viewSessionList()
+}
 
-		// Header - always show "Select directory", append filter if active
-		if m.repoFilter != "" {
-			b.WriteString(ui.HeaderStyle.Render("Select directory"))
-			b.WriteString("  ")
-			b.WriteString(ui.FilterStyle.Render(m.repoFilter))
+// viewPickDirectory renders the directory picker view
+func (m Model) viewPickDirectory() string {
+	var b strings.Builder
+	usedLines := 0
+
+	// Header - always show "Select directory", append filter if active
+	if m.repoFilter != "" {
+		b.WriteString(ui.HeaderStyle.Render("Select directory"))
+		b.WriteString("  ")
+		b.WriteString(ui.FilterStyle.Render(m.repoFilter))
+	} else {
+		b.WriteString(ui.HeaderStyle.Render("Select directory"))
+	}
+	b.WriteString("\n")
+	usedLines++
+
+	b.WriteString(ui.RenderBorder(m.borderWidth()))
+	b.WriteString("\n")
+	usedLines++
+
+	// Use shared helper for consistent visible item calculation
+	maxItems := m.repoMaxVisibleItems()
+
+	// Directory list (only visible items)
+	endIdx := m.repoScrollOffset + maxItems
+	if endIdx > len(m.repoFiltered) {
+		endIdx = len(m.repoFiltered)
+	}
+	visibleCount := endIdx - m.repoScrollOffset
+
+	// Get scrollbar characters for each line
+	scrollbar := ui.ScrollbarChars(len(m.repoFiltered), maxItems, m.repoScrollOffset, visibleCount)
+
+	contentLines := 0
+	for i := m.repoScrollOffset; i < endIdx; i++ {
+		dir := m.repoFiltered[i]
+		selected := i == m.repoCursor
+		lineIdx := i - m.repoScrollOffset
+
+		// Scrollbar on the left
+		if lineIdx < len(scrollbar) {
+			b.WriteString(scrollbar[lineIdx])
+			b.WriteString(" ")
+		}
+
+		if selected {
+			b.WriteString(ui.FilterStyle.Render(dir))
 		} else {
-			b.WriteString(ui.HeaderStyle.Render("Select directory"))
+			b.WriteString(dir)
 		}
 		b.WriteString("\n")
-		usedLines++
-
-		b.WriteString(ui.RenderBorder(m.borderWidth()))
-		b.WriteString("\n")
-		usedLines++
-
-		// Use shared helper for consistent visible item calculation
-		maxItems := m.repoMaxVisibleItems()
-
-		// Directory list (only visible items)
-		endIdx := m.repoScrollOffset + maxItems
-		if endIdx > len(m.repoFiltered) {
-			endIdx = len(m.repoFiltered)
-		}
-		visibleCount := endIdx - m.repoScrollOffset
-
-		// Get scrollbar characters for each line
-		scrollbar := ui.ScrollbarChars(len(m.repoFiltered), maxItems, m.repoScrollOffset, visibleCount)
-
-		contentLines := 0
-		for i := m.repoScrollOffset; i < endIdx; i++ {
-			dir := m.repoFiltered[i]
-			selected := i == m.repoCursor
-			lineIdx := i - m.repoScrollOffset
-
-			// Scrollbar on the left
-			if lineIdx < len(scrollbar) {
-				b.WriteString(scrollbar[lineIdx])
-				b.WriteString(" ")
-			}
-
-			if selected {
-				b.WriteString(ui.FilterStyle.Render(dir))
-			} else {
-				b.WriteString(dir)
-			}
-			b.WriteString("\n")
-			contentLines++
-		}
-
-		// Empty state
-		if len(m.repoFiltered) == 0 {
-			if m.repoFilter != "" {
-				b.WriteString("  No directories matching filter\n")
-			} else {
-				b.WriteString("  No directories found\n")
-			}
-			contentLines++
-		}
-		usedLines += contentLines
-
-		// Add padding to push footer to bottom
-		// Footer = border (1) + help line (1) = 2 lines
-		footerLines := 2
-		contentH := m.contentHeight()
-		if contentH > 0 {
-			padding := contentH - usedLines - footerLines
-			for i := 0; i < padding; i++ {
-				b.WriteString("\n")
-			}
-		}
-
-		b.WriteString(ui.RenderBorder(m.borderWidth()))
-		b.WriteString("\n")
-		if m.repoFilter != "" {
-			b.WriteString(ui.FooterStyle.Render(ui.HelpFiltering()))
-		} else {
-			b.WriteString(ui.FooterStyle.Render(ui.HelpPickDirectory()))
-		}
-		return ui.AppStyle.Render(b.String())
+		contentLines++
 	}
 
+	// Empty state
+	if len(m.repoFiltered) == 0 {
+		if m.repoFilter != "" {
+			b.WriteString("  No directories matching filter\n")
+		} else {
+			b.WriteString("  No directories found\n")
+		}
+		contentLines++
+	}
+	usedLines += contentLines
+
+	// Add padding to push footer to bottom
+	// Footer = border (1) + help line (1) = 2 lines
+	footerLines := 2
+	contentH := m.contentHeight()
+	if contentH > 0 {
+		padding := contentH - usedLines - footerLines
+		for i := 0; i < padding; i++ {
+			b.WriteString("\n")
+		}
+	}
+
+	b.WriteString(ui.RenderBorder(m.borderWidth()))
+	b.WriteString("\n")
+	if m.repoFilter != "" {
+		b.WriteString(ui.FooterStyle.Render(ui.HelpFiltering()))
+	} else {
+		b.WriteString(ui.FooterStyle.Render(ui.HelpPickDirectory()))
+	}
+	return ui.AppStyle.Render(b.String())
+}
+
+// viewSessionList renders the main session list view
+func (m Model) viewSessionList() string {
+	var b strings.Builder
 	usedLines := 0
 
 	// Header with optional filter
