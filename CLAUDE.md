@@ -80,3 +80,18 @@ tmux display-popup -w50% -h35% -B -E "./tsm"
 ## Claude Status Integration
 
 The hook (`hooks/tsm-hook.sh`) writes status files to `~/.cache/tsm/<session>.status`. The TUI reads these to show `[CC: new|working|waiting]` badges per session.
+
+## Issue Tracking (Beads)
+
+This repo uses [beads](https://github.com/steveyegge/beads) for git-backed issue tracking. Issues are stored in `.beads/`.
+
+```bash
+bd ready              # Show issues ready to work on
+bd list --status=open # All open issues
+bd show <id>          # View issue details
+bd create --title="..." --type=feature --priority=2
+bd close <id>         # Mark complete
+bd sync               # Sync with remote
+```
+
+When committing, include `.beads/` changes in the same commit as related code changes.
