@@ -37,8 +37,8 @@ var DefaultKeyMap = KeyMap{
 		key.WithHelp("j", "down"),
 	),
 	Expand: key.NewBinding(
-		key.WithKeys("l", "right"),
-		key.WithHelp("l", "expand"),
+		key.WithKeys("right"),
+		key.WithHelp("→", "expand"),
 	),
 	Collapse: key.NewBinding(
 		key.WithKeys("h", "left"),
@@ -69,8 +69,8 @@ var DefaultKeyMap = KeyMap{
 		key.WithHelp("x", "confirm"),
 	),
 	JumpLast: key.NewBinding(
-		key.WithKeys("o"),
-		key.WithHelp("o", "last"),
+		key.WithKeys("l"),
+		key.WithHelp("l", "last"),
 	),
 	Jump1: key.NewBinding(key.WithKeys("1")),
 	Jump2: key.NewBinding(key.WithKeys("2")),
@@ -85,10 +85,10 @@ var DefaultKeyMap = KeyMap{
 
 // HelpNormal returns the help text for normal mode
 func HelpNormal() string {
-	return HelpKeyStyle.Render("o") + HelpDescStyle.Render(" last  ") +
+	return HelpKeyStyle.Render("l") + HelpDescStyle.Render(" last  ") +
 		HelpKeyStyle.Render("1-9") + HelpDescStyle.Render(" jump  ") +
 		HelpKeyStyle.Render("j/k") + HelpDescStyle.Render(" nav  ") +
-		HelpKeyStyle.Render("h/l") + HelpDescStyle.Render(" expand  ") +
+		HelpKeyStyle.Render("h/→") + HelpDescStyle.Render(" expand  ") +
 		HelpKeyStyle.Render("x") + HelpDescStyle.Render(" kill  ") +
 		HelpKeyStyle.Render("c") + HelpDescStyle.Render(" new")
 }

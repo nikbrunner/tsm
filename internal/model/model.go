@@ -558,10 +558,10 @@ func (m Model) View() string {
 
 		if item.IsSession {
 			session := m.sessions[item.SessionIndex]
-			// First session gets "o" (for last/other), rest get numbers 1, 2, 3...
+			// First session gets "l" (for last), rest get numbers 1, 2, 3...
 			var label string
 			if sessionNum == 0 {
-				label = "o"
+				label = "l"
 			} else {
 				label = fmt.Sprintf("%d", sessionNum)
 			}
@@ -613,7 +613,7 @@ func (m Model) renderSessionWithLabel(session tmux.Session, label string, select
 	// Build the row with fixed-width columns
 	var b strings.Builder
 
-	// Label - "o" for first session, numbers for rest
+	// Label - "l" for first session (last), numbers for rest
 	if selected {
 		b.WriteString(ui.IndexSelectedStyle.Render(label))
 	} else {
