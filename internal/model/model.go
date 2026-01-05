@@ -621,6 +621,8 @@ func (m *Model) killCurrent() (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) createSession(name string) (tea.Model, tea.Cmd) {
+	// Sanitize session name (spaces, dots, colons break tmux target syntax)
+	name = sanitizeSessionName(name)
 	homeDir := os.Getenv("HOME")
 	if err := tmux.CreateSession(name, homeDir); err != nil {
 		m.setError("Error: %v", err)
