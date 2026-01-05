@@ -35,7 +35,6 @@ type Model struct {
 	sessions       []tmux.Session
 	claudeStatuses map[string]claude.Status
 	currentSession string
-	lastSession    string // Previous session for quick switch with 'o'
 	cursor         int
 	items          []Item // Flattened list of visible items
 	mode           Mode
@@ -93,7 +92,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case sessionsMsg:
 		m.sessions = msg.sessions
-		m.lastSession = tmux.LastSession()
 		m.loadClaudeStatuses()
 		m.calculateColumnWidths()
 		m.rebuildItems()
@@ -254,74 +252,56 @@ func (m *Model) handleCreateMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleJump(num int) (tea.Model, tea.Cmd) {
-	// Check if we're inside an expanded session
+	// Check if we're inside an expanded session - numbers switch to windows
 	if m.cursor >= 0 && m.cursor < len(m.items) {
 		item := m.items[m.cursor]
+		var session *tmux.Session
+
 		if !item.IsSession {
-			// We're on a window - find the parent session
-			session := &m.sessions[item.SessionIndex]
-			if session.Expanded {
-				// Jump to window number within this session
-				for i, w := range session.Windows {
-					if w.Index == num {
-						target := fmt.Sprintf("%s:%d", session.Name, w.Index)
-						if err := tmux.SwitchClient(target); err != nil {
-							m.message = fmt.Sprintf("Error: %v", err)
-							m.messageIsError = true
-							return m, nil
-						}
-						return m, tea.Quit
-					}
-					_ = i
-				}
-			}
+			session = &m.sessions[item.SessionIndex]
 		} else {
-			// Check if this session is expanded
-			session := &m.sessions[item.SessionIndex]
-			if session.Expanded {
-				// Jump to window
-				for _, w := range session.Windows {
-					if w.Index == num {
-						target := fmt.Sprintf("%s:%d", session.Name, w.Index)
-						if err := tmux.SwitchClient(target); err != nil {
-							m.message = fmt.Sprintf("Error: %v", err)
-							m.messageIsError = true
-							return m, nil
-						}
-						return m, tea.Quit
+			session = &m.sessions[item.SessionIndex]
+		}
+
+		if session.Expanded {
+			// Jump to window number within this session
+			for _, w := range session.Windows {
+				if w.Index == num {
+					target := fmt.Sprintf("%s:%d", session.Name, w.Index)
+					if err := tmux.SwitchClient(target); err != nil {
+						m.message = fmt.Sprintf("Error: %v", err)
+						m.messageIsError = true
+						return m, nil
 					}
+					return m, tea.Quit
 				}
 			}
 		}
 	}
 
-	// Default: switch to session by number immediately
-	sessionNum := 0
-	for _, item := range m.items {
-		if item.IsSession {
-			sessionNum++
-			if sessionNum == num {
-				session := m.sessions[item.SessionIndex]
-				if err := tmux.SwitchClient(session.Name); err != nil {
-					m.message = fmt.Sprintf("Error: %v", err)
-					m.messageIsError = true
-					return m, nil
-				}
-				return m, tea.Quit
-			}
+	// Session labels: "o" for index 0, "1" for index 1, "2" for index 2, etc.
+	// So pressing num N should switch to session at index N
+	if num > 0 && num < len(m.sessions) {
+		session := m.sessions[num]
+		if err := tmux.SwitchClient(session.Name); err != nil {
+			m.message = fmt.Sprintf("Error: %v", err)
+			m.messageIsError = true
+			return m, nil
 		}
+		return m, tea.Quit
 	}
 
 	return m, nil
 }
 
 func (m *Model) jumpToLastSession() (tea.Model, tea.Cmd) {
-	if m.lastSession == "" {
-		m.message = "No last session"
+	// First session in list is the most recent (last used)
+	if len(m.sessions) == 0 {
+		m.message = "No sessions"
 		return m, nil
 	}
 
-	if err := tmux.SwitchClient(m.lastSession); err != nil {
+	if err := tmux.SwitchClient(m.sessions[0].Name); err != nil {
 		m.message = fmt.Sprintf("Error: %v", err)
 		m.messageIsError = true
 		return m, nil
@@ -569,14 +549,7 @@ func (m Model) View() string {
 
 	// Header
 	b.WriteString(ui.HeaderStyle.Render("tmux sessions"))
-	b.WriteString("\n")
-
-	// Last session indicator
-	if m.lastSession != "" {
-		b.WriteString(ui.FooterStyle.Render("← " + m.lastSession + "  (o)"))
-		b.WriteString("\n")
-	}
-	b.WriteString("\n")
+	b.WriteString("\n\n")
 
 	// Session list
 	sessionNum := 0
@@ -584,9 +557,16 @@ func (m Model) View() string {
 		selected := i == m.cursor
 
 		if item.IsSession {
-			sessionNum++
 			session := m.sessions[item.SessionIndex]
-			b.WriteString(m.renderSession(session, sessionNum, selected))
+			// First session gets "o" (for last/other), rest get numbers 1, 2, 3...
+			var label string
+			if sessionNum == 0 {
+				label = "o"
+			} else {
+				label = fmt.Sprintf("%d", sessionNum)
+			}
+			sessionNum++
+			b.WriteString(m.renderSessionWithLabel(session, label, selected))
 		} else {
 			session := m.sessions[item.SessionIndex]
 			window := session.Windows[item.WindowIndex]
@@ -629,13 +609,17 @@ func (m Model) View() string {
 	return ui.AppStyle.Render(b.String())
 }
 
-func (m Model) renderSession(session tmux.Session, num int, selected bool) string {
+func (m Model) renderSessionWithLabel(session tmux.Session, label string, selected bool) string {
 	// Build the row with fixed-width columns
 	var b strings.Builder
 
-	// Number (width 3)
-	b.WriteString(ui.IndexStyle.Render(fmt.Sprintf("%d", num)))
-	b.WriteString(" ")
+	// Label - "o" for first session, numbers for rest
+	if selected {
+		b.WriteString(ui.IndexSelectedStyle.Render(label))
+	} else {
+		b.WriteString(ui.IndexStyle.Render(label))
+	}
+	b.WriteString("  ")
 
 	// Expand icon
 	if session.Expanded {
@@ -647,7 +631,11 @@ func (m Model) renderSession(session tmux.Session, num int, selected bool) strin
 
 	// Session name (padded to max width)
 	namePadded := fmt.Sprintf("%-*s", m.maxNameWidth, session.Name)
-	b.WriteString(namePadded)
+	if selected {
+		b.WriteString(ui.SessionNameSelectedStyle.Render(namePadded))
+	} else {
+		b.WriteString(namePadded)
+	}
 	b.WriteString("  ")
 
 	// Time ago (fixed width 8)
@@ -661,21 +649,21 @@ func (m Model) renderSession(session tmux.Session, num int, selected bool) strin
 		b.WriteString(ui.FormatClaudeStatus(status.State))
 	}
 
-	content := b.String()
-
-	if selected {
-		return ui.SelectedStyle.Render(content)
-	}
-	return ui.SessionStyle.Render(content)
+	return ui.SessionStyle.Render(b.String())
 }
 
 func (m Model) renderWindow(window tmux.Window, selected bool) string {
-	content := fmt.Sprintf("%d: %s", window.Index, window.Name)
+	var b strings.Builder
 
+	// Window index and name
+	windowText := fmt.Sprintf("%d: %s", window.Index, window.Name)
 	if selected {
-		return ui.WindowSelectedStyle.Render(content)
+		b.WriteString(ui.WindowNameSelectedStyle.Render(windowText))
+	} else {
+		b.WriteString(windowText)
 	}
-	return ui.WindowStyle.Render(content)
+
+	return ui.WindowStyle.Render(b.String())
 }
 
 func formatTimeAgo(t time.Time) string {

@@ -85,10 +85,10 @@ var DefaultKeyMap = KeyMap{
 
 // HelpNormal returns the help text for normal mode
 func HelpNormal() string {
-	return HelpKeyStyle.Render("1-9") + HelpDescStyle.Render(" jump  ") +
+	return HelpKeyStyle.Render("o") + HelpDescStyle.Render(" last  ") +
+		HelpKeyStyle.Render("1-9") + HelpDescStyle.Render(" jump  ") +
 		HelpKeyStyle.Render("j/k") + HelpDescStyle.Render(" nav  ") +
 		HelpKeyStyle.Render("h/l") + HelpDescStyle.Render(" expand  ") +
-		HelpKeyStyle.Render("o") + HelpDescStyle.Render(" last  ") +
 		HelpKeyStyle.Render("x") + HelpDescStyle.Render(" kill  ") +
 		HelpKeyStyle.Render("c") + HelpDescStyle.Render(" new")
 }

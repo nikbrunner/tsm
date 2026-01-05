@@ -59,7 +59,9 @@ var (
 			Padding(0, 1)
 
 	SelectedStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("236")).
+			Background(lipgloss.Color("240")).
+			Foreground(lipgloss.Color("255")).
+			Bold(true).
 			Padding(0, 1)
 
 	// Window row styles (indented)
@@ -68,7 +70,9 @@ var (
 			PaddingLeft(7)
 
 	WindowSelectedStyle = lipgloss.NewStyle().
-				Background(lipgloss.Color("236")).
+				Background(lipgloss.Color("240")).
+				Foreground(lipgloss.Color("255")).
+				Bold(true).
 				Padding(0, 1).
 				PaddingLeft(7)
 
@@ -77,8 +81,21 @@ var (
 			Foreground(ColorSecondary).
 			Width(3)
 
-	ExpandedIcon   = lipgloss.NewStyle().Foreground(ColorPrimary).Render("▼")
-	CollapsedIcon  = lipgloss.NewStyle().Foreground(ColorSecondary).Render("▶")
+	IndexSelectedStyle = lipgloss.NewStyle().
+				Foreground(ColorPrimary).
+				Bold(true).
+				Width(3)
+
+	SessionNameSelectedStyle = lipgloss.NewStyle().
+					Foreground(ColorPrimary).
+					Bold(true)
+
+	WindowNameSelectedStyle = lipgloss.NewStyle().
+				Foreground(ColorPrimary).
+				Bold(true)
+
+	ExpandedIcon  = lipgloss.NewStyle().Foreground(ColorPrimary).Render("▼")
+	CollapsedIcon = lipgloss.NewStyle().Foreground(ColorSecondary).Render("▶")
 
 	TimeStyle = lipgloss.NewStyle().
 			Foreground(ColorDim)

@@ -32,15 +32,6 @@ func CurrentSession() (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// LastSession returns the name of the last session from tmux option @last_session
-func LastSession() string {
-	out, err := exec.Command("tmux", "show-option", "-gqv", "@last_session").Output()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
-}
-
 // ListSessions returns all tmux sessions sorted by activity (most recent first)
 // Excludes the current session and popup sessions
 func ListSessions(excludeCurrent string) ([]Session, error) {
