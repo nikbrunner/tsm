@@ -122,6 +122,11 @@ var (
 	// Border style
 	BorderStyle = lipgloss.NewStyle().
 			Foreground(ColorDim)
+
+	// Statusline style
+	StatuslineStyle = lipgloss.NewStyle().
+			Foreground(ColorDim).
+			Padding(0, 1)
 )
 
 // RenderBorder returns a horizontal border line

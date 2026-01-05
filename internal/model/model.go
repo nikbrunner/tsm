@@ -764,9 +764,9 @@ func (m *Model) sessionMaxVisibleItems() int {
 	maxItems := m.config.MaxVisibleItems
 	contentH := m.contentHeight()
 	if contentH > 0 {
-		// Reserve: header(1) + header border(1) + message(1) + footer border(1) + footer(1) = 5 lines
+		// Reserve: header(1) + header border(1) + footer border(1) + message(1) + statusline(1) + help(1) = 6 lines
 		// Scrollbar is integrated into item lines, not separate
-		availableForContent := contentH - 5
+		availableForContent := contentH - 6
 		if availableForContent < maxItems && availableForContent > 0 {
 			maxItems = availableForContent
 		}
@@ -783,8 +783,8 @@ func (m *Model) repoMaxVisibleItems() int {
 	maxItems := m.config.MaxVisibleItems
 	contentH := m.contentHeight()
 	if contentH > 0 {
-		// Reserve: header(1) + border(1) + footer border(1) + footer(1) = 4 lines
-		availableForContent := contentH - 4
+		// Reserve: header(1) + header border(1) + footer border(1) + statusline(1) + help(1) = 5 lines
+		availableForContent := contentH - 5
 		if availableForContent < maxItems && availableForContent > 0 {
 			maxItems = availableForContent
 		}
@@ -926,8 +926,8 @@ func (m Model) viewPickDirectory() string {
 	usedLines += contentLines
 
 	// Add padding to push footer to bottom
-	// Footer = border (1) + help line (1) = 2 lines
-	footerLines := 2
+	// Footer = border (1) + statusline (1) + help line (1) = 3 lines
+	footerLines := 3
 	contentH := m.contentHeight()
 	if contentH > 0 {
 		padding := contentH - usedLines - footerLines
@@ -938,6 +938,17 @@ func (m Model) viewPickDirectory() string {
 
 	b.WriteString(ui.RenderBorder(m.borderWidth()))
 	b.WriteString("\n")
+
+	// Statusline (directory counts)
+	var statusline string
+	if m.repoFilter != "" {
+		statusline = fmt.Sprintf("%d/%d directories", len(m.repoFiltered), len(m.repoDirs))
+	} else {
+		statusline = fmt.Sprintf("%d directories", len(m.repoDirs))
+	}
+	b.WriteString(ui.StatuslineStyle.Render(statusline))
+	b.WriteString("\n")
+
 	if m.repoFilter != "" {
 		b.WriteString(ui.FooterStyle.Render(ui.HelpFiltering()))
 	} else {
@@ -1034,9 +1045,8 @@ func (m Model) viewSessionList() string {
 	}
 
 	// Add padding to push footer to bottom
-	// Footer is always: message line (1) + border (1) + help line (1) = 3 lines
-	// Message line is always reserved even when empty for layout stability
-	footerLines := 3
+	// Footer is always: border (1) + message (1) + statusline (1) + help (1) = 4 lines
+	footerLines := 4
 	contentH := m.contentHeight()
 	if contentH > 0 {
 		padding := contentH - usedLines - footerLines
@@ -1050,6 +1060,23 @@ func (m Model) viewSessionList() string {
 
 	// Message line (always rendered for consistent layout)
 	b.WriteString(messageContent)
+	b.WriteString("\n")
+
+	// Statusline (session counts)
+	var statusline string
+	if m.filter != "" {
+		// Count visible sessions (items that are sessions, not windows)
+		visibleSessions := 0
+		for _, item := range m.items {
+			if item.IsSession {
+				visibleSessions++
+			}
+		}
+		statusline = fmt.Sprintf("%d/%d sessions", visibleSessions, len(m.sessions))
+	} else {
+		statusline = fmt.Sprintf("%d sessions", len(m.sessions))
+	}
+	b.WriteString(ui.StatuslineStyle.Render(statusline))
 	b.WriteString("\n")
 
 	// Help line
