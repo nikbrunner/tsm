@@ -5,22 +5,35 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Check for Go
+if ! command -v go &>/dev/null; then
+    echo "Error: Go is required to build tmux-session-picker"
+    echo "Install Go from https://go.dev/dl/"
+    exit 1
+fi
+
 # Create ~/.local/bin if it doesn't exist
 mkdir -p "$HOME/.local/bin"
 
-# Symlink the main script
-ln -sf "$SCRIPT_DIR/tmux-session-picker" "$HOME/.local/bin/tmux-session-picker"
-chmod +x "$SCRIPT_DIR/tmux-session-picker"
+# Build and install the binary
+echo "Building tmux-session-picker..."
+cd "$SCRIPT_DIR"
+go build -o tsp ./cmd/tsp/
+cp tsp "$HOME/.local/bin/tsp"
 
-# Symlink the Claude status hook
-ln -sf "$SCRIPT_DIR/hooks/claude-status-hook.sh" "$HOME/.local/bin/tmux-session-picker-hook"
-chmod +x "$SCRIPT_DIR/hooks/claude-status-hook.sh"
+# Install the Claude status hook
+cp "$SCRIPT_DIR/hooks/claude-status-hook.sh" "$HOME/.local/bin/tmux-session-picker-hook"
+chmod +x "$HOME/.local/bin/tmux-session-picker-hook"
 
+echo ""
 echo "Installed:"
-echo "  ~/.local/bin/tmux-session-picker"
+echo "  ~/.local/bin/tsp"
 echo "  ~/.local/bin/tmux-session-picker-hook"
 echo ""
 echo "Make sure ~/.local/bin is in your PATH."
+echo ""
+echo "Add to your ~/.tmux.conf:"
+echo '  bind -n M-w display-popup -w65% -h50% -B -E "tsp"'
 echo ""
 echo "To enable Claude Code status integration (optional):"
 echo ""

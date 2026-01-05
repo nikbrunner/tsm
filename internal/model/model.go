@@ -180,9 +180,6 @@ func (m *Model) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.input.Focus()
 		return m, textinput.Blink
 
-	case key.Matches(msg, keys.JumpLast):
-		return m.jumpToLastSession()
-
 	// Number jumps
 	case key.Matches(msg, keys.Jump1):
 		return m.handleJump(1)
@@ -292,22 +289,6 @@ func (m *Model) handleJump(num int) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
-}
-
-func (m *Model) jumpToLastSession() (tea.Model, tea.Cmd) {
-	// First session in list is the most recent (last used)
-	if len(m.sessions) == 0 {
-		m.message = "No sessions"
-		return m, nil
-	}
-
-	if err := tmux.SwitchClient(m.sessions[0].Name); err != nil {
-		m.message = fmt.Sprintf("Error: %v", err)
-		m.messageIsError = true
-		return m, nil
-	}
-
-	return m, tea.Quit
 }
 
 func (m *Model) expandCurrent() {

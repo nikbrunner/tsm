@@ -13,9 +13,8 @@ type KeyMap struct {
 	Create   key.Binding
 	Quit     key.Binding
 	Cancel   key.Binding
-	Confirm  key.Binding
-	JumpLast key.Binding
-	Jump1    key.Binding
+	Confirm key.Binding
+	Jump1   key.Binding
 	Jump2    key.Binding
 	Jump3    key.Binding
 	Jump4    key.Binding
@@ -67,10 +66,6 @@ var DefaultKeyMap = KeyMap{
 	Confirm: key.NewBinding(
 		key.WithKeys("x"),
 		key.WithHelp("x", "confirm"),
-	),
-	JumpLast: key.NewBinding(
-		key.WithKeys("l"),
-		key.WithHelp("l", "last"),
 	),
 	Jump1: key.NewBinding(key.WithKeys("1")),
 	Jump2: key.NewBinding(key.WithKeys("2")),
