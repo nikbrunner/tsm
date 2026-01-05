@@ -16,10 +16,10 @@ fi
 mkdir -p "$HOME/.local/bin"
 
 # Build and install the binary
-echo "Building tmux-session-picker..."
+echo "Building tsm..."
 cd "$SCRIPT_DIR"
-go build -o tsp ./cmd/tsp/
-cp tsp "$HOME/.local/bin/tsp"
+go build -o tsm ./cmd/tsm/
+cp tsm "$HOME/.local/bin/tsm"
 
 # Install the Claude status hook
 cp "$SCRIPT_DIR/hooks/claude-status-hook.sh" "$HOME/.local/bin/tmux-session-picker-hook"
@@ -27,13 +27,13 @@ chmod +x "$HOME/.local/bin/tmux-session-picker-hook"
 
 echo ""
 echo "Installed:"
-echo "  ~/.local/bin/tsp"
+echo "  ~/.local/bin/tsm"
 echo "  ~/.local/bin/tmux-session-picker-hook"
 echo ""
 echo "Make sure ~/.local/bin is in your PATH."
 echo ""
 echo "Add to your ~/.tmux.conf:"
-echo '  bind -n M-w display-popup -w65% -h50% -B -E "tsp"'
+echo '  bind -n M-w display-popup -w65% -h50% -B -E "tsm"'
 echo ""
 echo "To enable Claude Code status integration (optional):"
 echo ""

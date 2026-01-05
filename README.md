@@ -1,6 +1,6 @@
-# tmux-session-picker
+# tsm
 
-A TUI for quickly switching between tmux sessions, creating new ones, and managing existing sessions.
+**t**mux **s**ession **m**anager - A TUI for quickly switching between tmux sessions, creating new ones, and managing existing sessions.
 
 Built with [Bubbletea](https://github.com/charmbracelet/bubbletea) for a fast, responsive interface with vim-style navigation.
 
@@ -24,19 +24,19 @@ Built with [Bubbletea](https://github.com/charmbracelet/bubbletea) for a fast, r
 ### Build and Install
 
 ```sh
-git clone https://github.com/nikbrunner/tmux-session-picker.git
-cd tmux-session-picker
+git clone https://github.com/nikbrunner/tsm.git
+cd tsm
 make install
 ```
 
-This builds the `tsp` binary and installs it to `~/.local/bin/`.
+This builds the `tsm` binary and installs it to `~/.local/bin/`.
 
 ## Setup
 
 Add a key binding to your `~/.tmux.conf`:
 
 ```tmux
-bind -n M-w display-popup -w50% -h35% -B -E "tsp"
+bind -n M-w display-popup -w50% -h35% -B -E "tsm"
 ```
 
 Reload your tmux configuration: `tmux source-file ~/.tmux.conf`

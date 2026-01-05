@@ -1,10 +1,10 @@
 .PHONY: build install clean test
 
-BINARY_NAME=tsp
+BINARY_NAME=tsm
 INSTALL_DIR=$(HOME)/.local/bin
 
 build:
-	go build -o $(BINARY_NAME) ./cmd/tsp/
+	go build -o $(BINARY_NAME) ./cmd/tsm/
 
 install: build
 	mkdir -p $(INSTALL_DIR)
