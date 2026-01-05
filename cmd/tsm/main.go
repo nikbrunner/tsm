@@ -5,8 +5,8 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/nikbrunner/tmux-session-picker/internal/model"
-	"github.com/nikbrunner/tmux-session-picker/internal/tmux"
+	"github.com/nikbrunner/tsm/internal/model"
+	"github.com/nikbrunner/tsm/internal/tmux"
 )
 
 func main() {

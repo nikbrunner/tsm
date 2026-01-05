@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install script for tmux-session-picker
+# Install script for tsm (tmux session manager)
 
 set -euo pipefail
 
@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Check for Go
 if ! command -v go &>/dev/null; then
-    echo "Error: Go is required to build tmux-session-picker"
+    echo "Error: Go is required to build tsm"
     echo "Install Go from https://go.dev/dl/"
     exit 1
 fi
@@ -22,13 +22,13 @@ go build -o tsm ./cmd/tsm/
 cp tsm "$HOME/.local/bin/tsm"
 
 # Install the Claude status hook
-cp "$SCRIPT_DIR/hooks/claude-status-hook.sh" "$HOME/.local/bin/tmux-session-picker-hook"
-chmod +x "$HOME/.local/bin/tmux-session-picker-hook"
+cp "$SCRIPT_DIR/hooks/tsm-hook.sh" "$HOME/.local/bin/tsm-hook"
+chmod +x "$HOME/.local/bin/tsm-hook"
 
 echo ""
 echo "Installed:"
 echo "  ~/.local/bin/tsm"
-echo "  ~/.local/bin/tmux-session-picker-hook"
+echo "  ~/.local/bin/tsm-hook"
 echo ""
 echo "Make sure ~/.local/bin is in your PATH."
 echo ""
@@ -43,13 +43,13 @@ cat << 'EOF'
 {
   "hooks": {
     "PreToolUse": [
-      {"hooks": [{"type": "command", "command": "~/.local/bin/tmux-session-picker-hook PreToolUse"}]}
+      {"hooks": [{"type": "command", "command": "~/.local/bin/tsm-hook PreToolUse"}]}
     ],
     "Stop": [
-      {"hooks": [{"type": "command", "command": "~/.local/bin/tmux-session-picker-hook Stop"}]}
+      {"hooks": [{"type": "command", "command": "~/.local/bin/tsm-hook Stop"}]}
     ],
     "Notification": [
-      {"hooks": [{"type": "command", "command": "~/.local/bin/tmux-session-picker-hook Notification"}]}
+      {"hooks": [{"type": "command", "command": "~/.local/bin/tsm-hook Notification"}]}
     ]
   }
 }

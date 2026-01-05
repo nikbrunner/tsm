@@ -9,9 +9,9 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/nikbrunner/tmux-session-picker/internal/claude"
-	"github.com/nikbrunner/tmux-session-picker/internal/tmux"
-	"github.com/nikbrunner/tmux-session-picker/internal/ui"
+	"github.com/nikbrunner/tsm/internal/claude"
+	"github.com/nikbrunner/tsm/internal/tmux"
+	"github.com/nikbrunner/tsm/internal/ui"
 )
 
 // Mode represents the current UI mode

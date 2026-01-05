@@ -67,9 +67,9 @@ Optionally display Claude Code status for each session.
    ```json
    {
      "hooks": {
-       "PreToolUse": [{ "hooks": [{ "type": "command", "command": "~/.local/bin/tmux-session-picker-hook PreToolUse" }] }],
-       "Stop": [{ "hooks": [{ "type": "command", "command": "~/.local/bin/tmux-session-picker-hook Stop" }] }],
-       "Notification": [{ "hooks": [{ "type": "command", "command": "~/.local/bin/tmux-session-picker-hook Notification" }] }]
+       "PreToolUse": [{ "hooks": [{ "type": "command", "command": "~/.local/bin/tsm-hook PreToolUse" }] }],
+       "Stop": [{ "hooks": [{ "type": "command", "command": "~/.local/bin/tsm-hook Stop" }] }],
+       "Notification": [{ "hooks": [{ "type": "command", "command": "~/.local/bin/tsm-hook Notification" }] }]
      }
    }
    ```

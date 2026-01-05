@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Claude Code hook - writes status to ~/.cache/tmux-session-picker/
-# Used by tmux-session-picker to display Claude status per session
+# Claude Code hook - writes status to ~/.cache/tsm/
+# Used by tsm to display Claude status per session
 
-STATUS_DIR="$HOME/.cache/tmux-session-picker"
+STATUS_DIR="$HOME/.cache/tsm"
 mkdir -p "$STATUS_DIR"
 
 # Read JSON from stdin (required by Claude Code hooks)

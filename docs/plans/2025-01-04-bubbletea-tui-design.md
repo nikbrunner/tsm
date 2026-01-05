@@ -1,4 +1,4 @@
-# Bubbletea TUI Design for tmux-session-picker
+# Bubbletea TUI Design for tsm
 
 **Date:** 2025-01-04
 **Status:** Approved
@@ -122,7 +122,7 @@ const (
 
 - `tmux list-sessions -F '#{session_activity} #{session_name}'` - sessions with timestamps
 - `tmux list-windows -t <session> -F '#{window_index}: #{window_name}'` - windows
-- `~/.cache/tmux-session-picker/<session>.status` - Claude Code status (optional)
+- `~/.cache/tsm/<session>.status` - Claude Code status (optional)
 
 ## Error Handling
 
@@ -144,9 +144,9 @@ const (
 ## File Structure
 
 ```
-tmux-session-picker/
+tsm/
 ├── cmd/
-│   └── tsp/
+│   └── tsm/
 │       └── main.go          # entry point
 ├── internal/
 │   ├── model/

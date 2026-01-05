@@ -15,7 +15,7 @@ type Status struct {
 }
 
 // StatusDir is the directory where Claude status files are stored
-var StatusDir = filepath.Join(os.Getenv("HOME"), ".cache", "tmux-session-picker")
+var StatusDir = filepath.Join(os.Getenv("HOME"), ".cache", "tsm")
 
 // GetStatus reads the Claude Code status for a session
 // Returns empty Status if no status file exists or feature is disabled

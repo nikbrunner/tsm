@@ -80,7 +80,7 @@ This is a bash script that provides a tmux popup interface for quickly switching
 Since this is tmux-specific:
 
 1. Must run inside a tmux session
-2. Test with `display-popup -E "./tmux-session-picker"` for popup behavior
+2. Test with `display-popup -E "./tsm"` for popup behavior
 3. Create multiple sessions to test switching and killing
 
 ### Critical Behaviors

@@ -1,4 +1,4 @@
-module github.com/nikbrunner/tmux-session-picker
+module github.com/nikbrunner/tsm
 
 go 1.25.5
 
