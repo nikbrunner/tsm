@@ -384,7 +384,8 @@ func (m *Model) createSessionFromDir(relPath string) (tea.Model, tea.Cmd) {
 	fullPath := filepath.Join(m.config.ReposDir, relPath)
 
 	// Convert "owner/repo" to "owner-repo" for session name
-	name := strings.ReplaceAll(relPath, "/", "-")
+	// Also sanitize dots and colons which have special meaning in tmux target syntax
+	name := sanitizeSessionName(relPath)
 
 	if err := tmux.CreateSession(name, fullPath); err != nil {
 		m.setError("Error: %v", err)
@@ -641,15 +642,13 @@ func (m *Model) applyLayout(sessionName, workingDir string) {
 		return
 	}
 
-	// Execute layout script in background
-	go func() {
-		cmd := exec.Command(scriptPath, sessionName, workingDir)
-		cmd.Env = append(os.Environ(),
-			"TMUX_SESSION="+sessionName,
-			"TMUX_WORKING_DIR="+workingDir,
-		)
-		_ = cmd.Run()
-	}()
+	// Run layout script synchronously before switching to the session
+	cmd := exec.Command(scriptPath, sessionName, workingDir)
+	cmd.Env = append(os.Environ(),
+		"TMUX_SESSION="+sessionName,
+		"TMUX_WORKING_DIR="+workingDir,
+	)
+	_ = cmd.Run()
 }
 
 func (m *Model) loadClaudeStatuses() {
@@ -807,6 +806,17 @@ func (m *Model) getTargetName(item Item) string {
 func (m *Model) setError(format string, args ...any) {
 	m.message = fmt.Sprintf(format, args...)
 	m.messageIsError = true
+}
+
+// sanitizeSessionName converts a path to a valid tmux session name
+// Dots and colons have special meaning in tmux target syntax (window.pane, session:window)
+func sanitizeSessionName(name string) string {
+	replacer := strings.NewReplacer(
+		"/", "-",
+		".", "-",
+		":", "-",
+	)
+	return replacer.Replace(name)
 }
 
 // View implements tea.Model
