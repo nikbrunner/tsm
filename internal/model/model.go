@@ -722,13 +722,14 @@ func (m *Model) rebuildItems() {
 
 // updateScrollOffset adjusts scroll offset to keep cursor visible in session list
 func (m *Model) updateScrollOffset() {
+	maxVisible := m.sessionMaxVisibleItems()
 	// If cursor is above visible area, scroll up
 	if m.cursor < m.scrollOffset {
 		m.scrollOffset = m.cursor
 	}
 	// If cursor is below visible area, scroll down
-	if m.cursor >= m.scrollOffset+m.config.MaxVisibleItems {
-		m.scrollOffset = m.cursor - m.config.MaxVisibleItems + 1
+	if m.cursor >= m.scrollOffset+maxVisible {
+		m.scrollOffset = m.cursor - maxVisible + 1
 	}
 	// Ensure scroll offset is not negative
 	if m.scrollOffset < 0 {
@@ -755,6 +756,26 @@ func (m *Model) contentHeight() int {
 // borderWidth returns the width to use for internal borders
 func (m *Model) borderWidth() int {
 	return m.contentWidth()
+}
+
+// sessionMaxVisibleItems returns the actual number of session items that can be shown
+// based on window height, accounting for fixed UI elements
+func (m *Model) sessionMaxVisibleItems() int {
+	maxItems := m.config.MaxVisibleItems
+	contentH := m.contentHeight()
+	if contentH > 0 {
+		// Reserve: header(1) + header border(1) + scroll up(1) + scroll down(1)
+		//        + message(1) + footer border(1) + footer(1) = 7 lines
+		// We reserve scroll indicators and message conservatively to avoid overflow
+		availableForContent := contentH - 7
+		if availableForContent < maxItems && availableForContent > 0 {
+			maxItems = availableForContent
+		}
+	} else {
+		// Conservative default when height unknown
+		maxItems = 5
+	}
+	return maxItems
 }
 
 // repoMaxVisibleItems returns the actual number of items that can be shown
@@ -954,7 +975,8 @@ func (m Model) viewSessionList() string {
 	}
 
 	// Session list (only visible items)
-	endIdx := m.scrollOffset + m.config.MaxVisibleItems
+	maxVisible := m.sessionMaxVisibleItems()
+	endIdx := m.scrollOffset + maxVisible
 	if endIdx > len(m.items) {
 		endIdx = len(m.items)
 	}

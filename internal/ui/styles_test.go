@@ -155,8 +155,8 @@ func TestScrollbarChars(t *testing.T) {
 
 func TestRenderBorder(t *testing.T) {
 	tests := []struct {
-		width    int
-		wantLen  int
+		width   int
+		wantLen int
 	}{
 		{width: 10, wantLen: 10},
 		{width: 0, wantLen: 0},

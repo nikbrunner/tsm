@@ -13,7 +13,7 @@ func TestGetStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	tests := []struct {
 		name        string
@@ -81,7 +81,7 @@ func TestGetStatus(t *testing.T) {
 				if err := os.WriteFile(filePath, []byte(tt.content), 0644); err != nil {
 					t.Fatalf("Failed to write test file: %v", err)
 				}
-				defer os.Remove(filePath)
+				defer func() { _ = os.Remove(filePath) }()
 			}
 
 			sessionName := "test-session"
@@ -112,7 +112,7 @@ func TestCleanupStale(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create some status files
 	files := []string{"active.status", "stale1.status", "stale2.status", "notastatus.txt"}
