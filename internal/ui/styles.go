@@ -1,6 +1,10 @@
 package ui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+)
 
 // ANSI 16 colors - adapts to terminal theme
 // 0-7: black, red, green, yellow, blue, magenta, cyan, white
@@ -106,7 +110,16 @@ var (
 	FilterStyle = lipgloss.NewStyle().
 			Foreground(ColorWarning).
 			Bold(true)
+
+	// Border style
+	BorderStyle = lipgloss.NewStyle().
+			Foreground(ColorDim)
 )
+
+// RenderBorder returns a horizontal border line
+func RenderBorder(width int) string {
+	return BorderStyle.Render(strings.Repeat("─", width))
+}
 
 // FormatClaudeStatus formats the Claude status for display
 func FormatClaudeStatus(state string) string {

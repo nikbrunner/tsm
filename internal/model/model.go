@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -22,7 +23,9 @@ const (
 	ModeNormal Mode = iota
 	ModeConfirmKill
 	ModeCreate
+	ModePickDirectory
 )
+
 
 // Item represents either a session or a window in the flattened list
 type Item struct {
@@ -48,6 +51,20 @@ type Model struct {
 	config         config.Config
 	maxNameWidth   int    // For column alignment
 	filter         string // Current filter text for fuzzy matching
+
+	// Directory picker state
+	repoDirs       []string // All scanned directories (relative paths like "owner/repo")
+	repoFiltered   []string // Filtered list based on repoFilter
+	repoFilter     string   // Current filter text for directory picker
+	repoCursor     int      // Selected item in directory list
+
+	// Scroll state
+	scrollOffset     int // Scroll offset for session list
+	repoScrollOffset int // Scroll offset for directory picker
+
+	// Window size
+	width  int
+	height int
 }
 
 // New creates a new Model
@@ -116,6 +133,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.messageIsError = false
 		return m, nil
 
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		return m, nil
+
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}
@@ -138,6 +160,8 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleConfirmKillMode(msg)
 	case ModeCreate:
 		return m.handleCreateMode(msg)
+	case ModePickDirectory:
+		return m.handlePickDirectoryMode(msg)
 	}
 	return m, nil
 }
@@ -161,11 +185,13 @@ func (m *Model) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.Up):
 		if m.cursor > 0 {
 			m.cursor--
+			m.updateScrollOffset()
 		}
 
 	case key.Matches(msg, keys.Down):
 		if m.cursor < len(m.items)-1 {
 			m.cursor++
+			m.updateScrollOffset()
 		}
 
 	case key.Matches(msg, keys.Expand):
@@ -188,6 +214,16 @@ func (m *Model) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.input.SetValue("")
 		m.input.Focus()
 		return m, textinput.Blink
+
+	case key.Matches(msg, keys.PickDirectory):
+		m.mode = ModePickDirectory
+		m.filter = "" // Clear any active filter
+		m.repoFilter = ""
+		m.repoCursor = 0
+		m.repoScrollOffset = 0
+		m.repoDirs = m.scanRepoDirectories()
+		m.repoFiltered = m.repoDirs
+		return m, nil
 
 	// Number jumps (only when no filter active)
 	case m.filter == "" && key.Matches(msg, keys.Jump1):
@@ -270,6 +306,155 @@ func (m *Model) handleCreateMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
 	return m, cmd
+}
+
+func (m *Model) handlePickDirectoryMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keys := ui.DefaultKeyMap
+
+	switch {
+	case key.Matches(msg, keys.Cancel):
+		// Clear filter first, then exit on second press
+		if m.repoFilter != "" {
+			m.repoFilter = ""
+			m.repoFiltered = m.repoDirs
+			m.repoCursor = 0
+			return m, nil
+		}
+		m.mode = ModeNormal
+		return m, nil
+
+	case key.Matches(msg, keys.Up):
+		if m.repoCursor > 0 {
+			m.repoCursor--
+			m.updateRepoScrollOffset()
+		}
+
+	case key.Matches(msg, keys.Down):
+		if m.repoCursor < len(m.repoFiltered)-1 {
+			m.repoCursor++
+			m.updateRepoScrollOffset()
+		}
+
+	case key.Matches(msg, keys.Select):
+		if len(m.repoFiltered) > 0 && m.repoCursor < len(m.repoFiltered) {
+			return m.createSessionFromDir(m.repoFiltered[m.repoCursor])
+		}
+
+	case key.Matches(msg, keys.Quit):
+		return m, tea.Quit
+
+	case msg.Type == tea.KeyBackspace:
+		if len(m.repoFilter) > 0 {
+			m.repoFilter = m.repoFilter[:len(m.repoFilter)-1]
+			m.filterRepoDirs()
+		}
+
+	case msg.Type == tea.KeyRunes:
+		m.repoFilter += string(msg.Runes)
+		m.filterRepoDirs()
+	}
+
+	return m, nil
+}
+
+// filterRepoDirs filters the repo directories based on repoFilter
+func (m *Model) filterRepoDirs() {
+	if m.repoFilter == "" {
+		m.repoFiltered = m.repoDirs
+	} else {
+		filterLower := strings.ToLower(m.repoFilter)
+		m.repoFiltered = nil
+		for _, dir := range m.repoDirs {
+			if fuzzyMatch(dir, filterLower) {
+				m.repoFiltered = append(m.repoFiltered, dir)
+			}
+		}
+	}
+	// Reset cursor if out of bounds
+	if m.repoCursor >= len(m.repoFiltered) {
+		m.repoCursor = len(m.repoFiltered) - 1
+	}
+	if m.repoCursor < 0 {
+		m.repoCursor = 0
+	}
+	m.updateRepoScrollOffset()
+}
+
+func (m *Model) createSessionFromDir(relPath string) (tea.Model, tea.Cmd) {
+	// relPath is like "owner/repo" - convert to full path
+	fullPath := filepath.Join(m.config.ReposDir, relPath)
+
+	// Convert "owner/repo" to "owner-repo" for session name
+	name := strings.ReplaceAll(relPath, "/", "-")
+
+	if err := tmux.CreateSession(name, fullPath); err != nil {
+		m.message = fmt.Sprintf("Error: %v", err)
+		m.messageIsError = true
+		m.mode = ModeNormal
+		return m, nil
+	}
+
+	// Apply layout if configured
+	m.applyLayout(name, fullPath)
+
+	// Switch to the new session
+	if err := tmux.SwitchClient(name); err != nil {
+		m.message = fmt.Sprintf("Created but failed to switch: %v", err)
+		m.messageIsError = true
+		return m, m.loadSessions
+	}
+
+	return m, tea.Quit
+}
+
+// scanRepoDirectories scans the repos directory at the configured depth
+// and returns relative paths like "owner/repo"
+func (m *Model) scanRepoDirectories() []string {
+	var dirs []string
+	baseDir := m.config.ReposDir
+	depth := m.config.ReposDepth
+
+	// Walk directories at exactly the target depth
+	m.walkAtDepth(baseDir, "", depth, &dirs)
+
+	return dirs
+}
+
+// walkAtDepth recursively walks directories and collects paths at the target depth
+func (m *Model) walkAtDepth(baseDir, currentPath string, remainingDepth int, dirs *[]string) {
+	if remainingDepth == 0 {
+		// We've reached the target depth - add this directory
+		if currentPath != "" {
+			*dirs = append(*dirs, currentPath)
+		}
+		return
+	}
+
+	// Read the current directory
+	fullPath := filepath.Join(baseDir, currentPath)
+	entries, err := os.ReadDir(fullPath)
+	if err != nil {
+		return
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		// Skip hidden directories
+		if strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+
+		var nextPath string
+		if currentPath == "" {
+			nextPath = entry.Name()
+		} else {
+			nextPath = filepath.Join(currentPath, entry.Name())
+		}
+
+		m.walkAtDepth(baseDir, nextPath, remainingDepth-1, dirs)
+	}
 }
 
 func (m *Model) handleJump(num int) (tea.Model, tea.Cmd) {
@@ -550,6 +735,47 @@ func (m *Model) rebuildItems() {
 	if m.cursor < 0 {
 		m.cursor = 0
 	}
+	m.updateScrollOffset()
+}
+
+// updateScrollOffset adjusts scroll offset to keep cursor visible in session list
+func (m *Model) updateScrollOffset() {
+	// If cursor is above visible area, scroll up
+	if m.cursor < m.scrollOffset {
+		m.scrollOffset = m.cursor
+	}
+	// If cursor is below visible area, scroll down
+	if m.cursor >= m.scrollOffset+m.config.MaxVisibleItems {
+		m.scrollOffset = m.cursor - m.config.MaxVisibleItems + 1
+	}
+	// Ensure scroll offset is not negative
+	if m.scrollOffset < 0 {
+		m.scrollOffset = 0
+	}
+}
+
+// borderWidth returns the width to use for borders
+func (m *Model) borderWidth() int {
+	if m.width > 0 {
+		return m.width
+	}
+	return 60 // Default fallback
+}
+
+// updateRepoScrollOffset adjusts scroll offset to keep cursor visible in repo list
+func (m *Model) updateRepoScrollOffset() {
+	// If cursor is above visible area, scroll up
+	if m.repoCursor < m.repoScrollOffset {
+		m.repoScrollOffset = m.repoCursor
+	}
+	// If cursor is below visible area, scroll down
+	if m.repoCursor >= m.repoScrollOffset+m.config.MaxVisibleItems {
+		m.repoScrollOffset = m.repoCursor - m.config.MaxVisibleItems + 1
+	}
+	// Ensure scroll offset is not negative
+	if m.repoScrollOffset < 0 {
+		m.repoScrollOffset = 0
+	}
 }
 
 // fuzzyMatch checks if the pattern matches the text (case-insensitive, substring match)
@@ -562,6 +788,94 @@ func fuzzyMatch(text, pattern string) bool {
 func (m Model) View() string {
 	var b strings.Builder
 
+	// Directory picker mode - show custom directory list
+	if m.mode == ModePickDirectory {
+		usedLines := 0
+
+		// Header with optional filter
+		if m.repoFilter != "" {
+			b.WriteString(ui.HeaderStyle.Render("Select directory"))
+			b.WriteString("  ")
+			b.WriteString(ui.FilterStyle.Render("/" + m.repoFilter))
+		} else {
+			b.WriteString(ui.HeaderStyle.Render("Select directory"))
+		}
+		b.WriteString("\n")
+		usedLines++
+
+		b.WriteString(ui.RenderBorder(m.borderWidth()))
+		b.WriteString("\n")
+		usedLines++
+
+		// Scroll indicator (top)
+		if m.repoScrollOffset > 0 {
+			b.WriteString(ui.TimeStyle.Render(fmt.Sprintf("  ↑ %d more", m.repoScrollOffset)))
+			b.WriteString("\n")
+			usedLines++
+		}
+
+		// Directory list (only visible items)
+		endIdx := m.repoScrollOffset + m.config.MaxVisibleItems
+		if endIdx > len(m.repoFiltered) {
+			endIdx = len(m.repoFiltered)
+		}
+		contentLines := 0
+		for i := m.repoScrollOffset; i < endIdx; i++ {
+			dir := m.repoFiltered[i]
+			selected := i == m.repoCursor
+			if selected {
+				b.WriteString(ui.IndexSelectedStyle.Render(">"))
+				b.WriteString(" ")
+				b.WriteString(ui.SessionNameSelectedStyle.Render(dir))
+			} else {
+				b.WriteString("  ")
+				b.WriteString(dir)
+			}
+			b.WriteString("\n")
+			contentLines++
+		}
+
+		// Empty state
+		if len(m.repoFiltered) == 0 {
+			if m.repoFilter != "" {
+				b.WriteString("  No directories matching filter\n")
+			} else {
+				b.WriteString("  No directories found\n")
+			}
+			contentLines++
+		}
+		usedLines += contentLines
+
+		// Scroll indicator (bottom)
+		remaining := len(m.repoFiltered) - endIdx
+		if remaining > 0 {
+			b.WriteString(ui.TimeStyle.Render(fmt.Sprintf("  ↓ %d more", remaining)))
+			b.WriteString("\n")
+			usedLines++
+		}
+
+		// Add padding to push footer to bottom
+		// Footer = border (1) + help line (1) = 2 lines
+		footerLines := 2
+		if m.height > 0 {
+			padding := m.height - usedLines - footerLines
+			for i := 0; i < padding; i++ {
+				b.WriteString("\n")
+			}
+		}
+
+		b.WriteString(ui.RenderBorder(m.borderWidth()))
+		b.WriteString("\n")
+		if m.repoFilter != "" {
+			b.WriteString(ui.FooterStyle.Render(ui.HelpFiltering()))
+		} else {
+			b.WriteString(ui.FooterStyle.Render(ui.HelpPickDirectory()))
+		}
+		return ui.AppStyle.Render(b.String())
+	}
+
+	usedLines := 0
+
 	// Header with optional filter
 	if m.filter != "" {
 		b.WriteString(ui.HeaderStyle.Render("tsm"))
@@ -570,11 +884,37 @@ func (m Model) View() string {
 	} else {
 		b.WriteString(ui.HeaderStyle.Render("tsm"))
 	}
-	b.WriteString("\n\n")
+	b.WriteString("\n")
+	usedLines++
 
-	// Session list
+	b.WriteString(ui.RenderBorder(m.borderWidth()))
+	b.WriteString("\n")
+	usedLines++
+
+	// Scroll indicator (top)
+	if m.scrollOffset > 0 {
+		b.WriteString(ui.TimeStyle.Render(fmt.Sprintf("  ↑ %d more", m.scrollOffset)))
+		b.WriteString("\n")
+		usedLines++
+	}
+
+	// Session list (only visible items)
+	endIdx := m.scrollOffset + m.config.MaxVisibleItems
+	if endIdx > len(m.items) {
+		endIdx = len(m.items)
+	}
+
+	// Calculate session numbers (count sessions before visible area)
 	sessionNum := 0
-	for i, item := range m.items {
+	for i := 0; i < m.scrollOffset && i < len(m.items); i++ {
+		if m.items[i].IsSession {
+			sessionNum++
+		}
+	}
+
+	contentLines := 0
+	for i := m.scrollOffset; i < endIdx; i++ {
+		item := m.items[i]
 		selected := i == m.cursor
 
 		if item.IsSession {
@@ -588,6 +928,7 @@ func (m Model) View() string {
 			b.WriteString(m.renderWindow(window, selected))
 		}
 		b.WriteString("\n")
+		contentLines++
 	}
 
 	// Empty state
@@ -597,23 +938,52 @@ func (m Model) View() string {
 		} else {
 			b.WriteString("  No other sessions available\n")
 		}
+		contentLines++
+	}
+	usedLines += contentLines
+
+	// Scroll indicator (bottom)
+	remaining := len(m.items) - endIdx
+	if remaining > 0 {
+		b.WriteString(ui.TimeStyle.Render(fmt.Sprintf("  ↓ %d more", remaining)))
+		b.WriteString("\n")
+		usedLines++
 	}
 
-	b.WriteString("\n")
-
-	// Message line
+	// Message line (rendered before padding, part of content area)
+	messageLines := 0
+	var messageContent string
 	if m.message != "" {
 		if m.messageIsError {
-			b.WriteString(ui.ErrorMessageStyle.Render(m.message))
+			messageContent = ui.ErrorMessageStyle.Render(m.message)
 		} else {
-			b.WriteString(ui.MessageStyle.Render(m.message))
+			messageContent = ui.MessageStyle.Render(m.message)
 		}
-		b.WriteString("\n")
+		messageLines = 1
 	} else if m.mode == ModeCreate {
-		b.WriteString(ui.InputPromptStyle.Render(" New session: "))
-		b.WriteString(m.input.View())
+		messageContent = ui.InputPromptStyle.Render(" New session: ") + m.input.View()
+		messageLines = 1
+	}
+
+	// Add padding to push footer to bottom
+	// Footer = border (1) + help line (1) = 2 lines
+	// Plus any message line
+	footerLines := 2 + messageLines
+	if m.height > 0 {
+		padding := m.height - usedLines - footerLines
+		for i := 0; i < padding; i++ {
+			b.WriteString("\n")
+		}
+	}
+
+	// Render message if present (now part of fixed footer area)
+	if messageContent != "" {
+		b.WriteString(messageContent)
 		b.WriteString("\n")
 	}
+
+	b.WriteString(ui.RenderBorder(m.borderWidth()))
+	b.WriteString("\n")
 
 	// Help line
 	switch m.mode {

@@ -21,6 +21,15 @@ type Config struct {
 
 	// Directory for status cache files
 	CacheDir string `toml:"cache_dir"`
+
+	// Base directory for directory picker (C-o)
+	ReposDir string `toml:"repos_dir"`
+
+	// Scan depth for repos_dir (default: 2 for owner/repo structure)
+	ReposDepth int `toml:"repos_depth"`
+
+	// Maximum visible items in scrollable lists
+	MaxVisibleItems int `toml:"max_visible_items"`
 }
 
 // DefaultConfig returns configuration with sensible defaults
@@ -31,6 +40,9 @@ func DefaultConfig() Config {
 		LayoutDir:           filepath.Join(home, ".config", "tmux", "layouts"),
 		ClaudeStatusEnabled: false,
 		CacheDir:            filepath.Join(home, ".cache", "tsm"),
+		ReposDir:            filepath.Join(home, "repos"),
+		ReposDepth:          2,
+		MaxVisibleItems:     10,
 	}
 }
 
@@ -56,6 +68,17 @@ func Load() (Config, error) {
 	// Expand ~ in paths
 	cfg.LayoutDir = expandPath(cfg.LayoutDir)
 	cfg.CacheDir = expandPath(cfg.CacheDir)
+	cfg.ReposDir = expandPath(cfg.ReposDir)
+
+	// Ensure ReposDepth is at least 1
+	if cfg.ReposDepth < 1 {
+		cfg.ReposDepth = 2
+	}
+
+	// Ensure MaxVisibleItems is at least 1
+	if cfg.MaxVisibleItems < 1 {
+		cfg.MaxVisibleItems = 10
+	}
 
 	// Environment variables override config file
 	if val := os.Getenv("TMUX_LAYOUT"); val != "" {
@@ -101,6 +124,15 @@ func Init() error {
 
 # Directory for status cache files
 # cache_dir = "~/.cache/tsm"
+
+# Base directory for directory picker (C-o)
+# repos_dir = "~/repos"
+
+# Scan depth for repos_dir (2 = owner/repo structure)
+# repos_depth = 2
+
+# Maximum visible items in scrollable lists
+# max_visible_items = 10
 `
 
 	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {

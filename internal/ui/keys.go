@@ -4,25 +4,26 @@ import "github.com/charmbracelet/bubbles/key"
 
 // KeyMap defines all key bindings for the application
 type KeyMap struct {
-	Up       key.Binding
-	Down     key.Binding
-	Expand   key.Binding
-	Collapse key.Binding
-	Select   key.Binding
-	Kill     key.Binding
-	Create   key.Binding
-	Quit     key.Binding
-	Cancel   key.Binding
-	Confirm  key.Binding
-	Jump1    key.Binding
-	Jump2    key.Binding
-	Jump3    key.Binding
-	Jump4    key.Binding
-	Jump5    key.Binding
-	Jump6    key.Binding
-	Jump7    key.Binding
-	Jump8    key.Binding
-	Jump9    key.Binding
+	Up            key.Binding
+	Down          key.Binding
+	Expand        key.Binding
+	Collapse      key.Binding
+	Select        key.Binding
+	Kill          key.Binding
+	Create        key.Binding
+	PickDirectory key.Binding
+	Quit          key.Binding
+	Cancel        key.Binding
+	Confirm       key.Binding
+	Jump1         key.Binding
+	Jump2         key.Binding
+	Jump3         key.Binding
+	Jump4         key.Binding
+	Jump5         key.Binding
+	Jump6         key.Binding
+	Jump7         key.Binding
+	Jump8         key.Binding
+	Jump9         key.Binding
 }
 
 // DefaultKeyMap returns the default key bindings
@@ -55,6 +56,10 @@ var DefaultKeyMap = KeyMap{
 	Create: key.NewBinding(
 		key.WithKeys("ctrl+n"),
 		key.WithHelp("C-n", "new"),
+	),
+	PickDirectory: key.NewBinding(
+		key.WithKeys("ctrl+o"),
+		key.WithHelp("C-o", "browse"),
 	),
 	Quit: key.NewBinding(
 		key.WithKeys("ctrl+c"),
@@ -95,7 +100,8 @@ func HelpNormal() string {
 		helpItem("C-j/k | ↑↓", "nav") + helpSep() +
 		helpItem("C-h/l | ←→", "expand") + helpSep() +
 		helpItem("C-x", "kill") + helpSep() +
-		helpItem("C-n", "new")
+		helpItem("C-n", "new") + helpSep() +
+		helpItem("C-o", "browse")
 }
 
 // HelpFiltering returns the help text when filter is active
@@ -115,4 +121,11 @@ func HelpConfirmKill() string {
 func HelpCreate() string {
 	return helpItem("enter", "create") + helpSep() +
 		helpItem("esc", "cancel")
+}
+
+// HelpPickDirectory returns the help text for directory picker mode
+func HelpPickDirectory() string {
+	return helpItem("↑↓", "nav") + helpSep() +
+		helpItem("enter", "select") + helpSep() +
+		helpItem("esc", "back/cancel")
 }
