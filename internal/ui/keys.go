@@ -29,11 +29,11 @@ type KeyMap struct {
 // Navigation uses Ctrl+key or arrows, letters are reserved for filtering
 var DefaultKeyMap = KeyMap{
 	Up: key.NewBinding(
-		key.WithKeys("ctrl+k", "ctrl+p", "up"),
+		key.WithKeys("ctrl+k", "up"),
 		key.WithHelp("↑", "up"),
 	),
 	Down: key.NewBinding(
-		key.WithKeys("ctrl+j", "ctrl+n", "down"),
+		key.WithKeys("ctrl+j", "down"),
 		key.WithHelp("↓", "down"),
 	),
 	Expand: key.NewBinding(
@@ -53,8 +53,8 @@ var DefaultKeyMap = KeyMap{
 		key.WithHelp("C-x", "kill"),
 	),
 	Create: key.NewBinding(
-		key.WithKeys("ctrl+o"),
-		key.WithHelp("C-o", "new"),
+		key.WithKeys("ctrl+n"),
+		key.WithHelp("C-n", "new"),
 	),
 	Quit: key.NewBinding(
 		key.WithKeys("ctrl+c"),
