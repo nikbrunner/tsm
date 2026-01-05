@@ -77,6 +77,17 @@ Must test inside tmux:
 tmux display-popup -w50% -h35% -B -E "./tsm"
 ```
 
+### Automated Visual Testing
+
+To test UI changes and capture a screenshot for visual verification:
+```bash
+tmux display-popup -w50% -h35% -B -E "~/.local/bin/tsm" &
+sleep 0.8
+screencapture -x /tmp/tsm_test.png
+```
+
+Then read `/tmp/tsm_test.png` to visually verify the UI looks correct.
+
 ## Claude Status Integration
 
 The hook (`hooks/tsm-hook.sh`) writes status files to `~/.cache/tsm/<session>.status`. The TUI reads these to show `[CC: new|working|waiting]` badges per session.

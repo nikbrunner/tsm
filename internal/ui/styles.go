@@ -20,11 +20,20 @@ var (
 	ColorMuted     = lipgloss.Color("8")  // Bright black (dark gray)
 )
 
+// Border and padding overhead for the app container
+const (
+	// AppBorderOverhead is the total cells used by border (2) + padding (2) per axis
+	AppBorderOverheadX = 4 // left border + left padding + right padding + right border
+	AppBorderOverheadY = 4 // top border + top padding + bottom padding + bottom border
+)
+
 // Styles
 var (
 	// Container styles
 	AppStyle = lipgloss.NewStyle().
-			Padding(0, 0)
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(ColorDim).
+			Padding(1)
 
 	HeaderStyle = lipgloss.NewStyle().
 			Bold(true).

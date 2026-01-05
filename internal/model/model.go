@@ -756,21 +756,35 @@ func (m *Model) updateScrollOffset() {
 	}
 }
 
-// borderWidth returns the width to use for borders
-func (m *Model) borderWidth() int {
+// contentWidth returns the available width inside the app border/padding
+func (m *Model) contentWidth() int {
 	if m.width > 0 {
-		return m.width
+		return m.width - ui.AppBorderOverheadX
 	}
-	return 60 // Default fallback
+	return 56 // Default fallback (60 - 4)
+}
+
+// contentHeight returns the available height inside the app border/padding
+func (m *Model) contentHeight() int {
+	if m.height > 0 {
+		return m.height - ui.AppBorderOverheadY
+	}
+	return 0
+}
+
+// borderWidth returns the width to use for internal borders
+func (m *Model) borderWidth() int {
+	return m.contentWidth()
 }
 
 // repoMaxVisibleItems returns the actual number of items that can be shown
 // based on window height, matching the View's calculation
 func (m *Model) repoMaxVisibleItems() int {
 	maxItems := m.config.MaxVisibleItems
-	if m.height > 0 {
+	contentH := m.contentHeight()
+	if contentH > 0 {
 		// Reserve: header(1) + border(1) + footer border(1) + footer(1) = 4 lines
-		availableForContent := m.height - 4
+		availableForContent := contentH - 4
 		if availableForContent < maxItems && availableForContent > 0 {
 			maxItems = availableForContent
 		}
@@ -875,8 +889,9 @@ func (m Model) View() string {
 		// Add padding to push footer to bottom
 		// Footer = border (1) + help line (1) = 2 lines
 		footerLines := 2
-		if m.height > 0 {
-			padding := m.height - usedLines - footerLines
+		contentH := m.contentHeight()
+		if contentH > 0 {
+			padding := contentH - usedLines - footerLines
 			for i := 0; i < padding; i++ {
 				b.WriteString("\n")
 			}
@@ -987,8 +1002,9 @@ func (m Model) View() string {
 	// Footer = border (1) + help line (1) = 2 lines
 	// Plus any message line
 	footerLines := 2 + messageLines
-	if m.height > 0 {
-		padding := m.height - usedLines - footerLines
+	contentH := m.contentHeight()
+	if contentH > 0 {
+		padding := contentH - usedLines - footerLines
 		for i := 0; i < padding; i++ {
 			b.WriteString("\n")
 		}
