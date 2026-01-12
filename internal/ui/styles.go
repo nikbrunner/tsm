@@ -186,9 +186,12 @@ func FormatClaudeStatus(state string, animationFrame int) string {
 	}
 }
 
+// GitStatusColumnWidth is the fixed width for the git status column
+const GitStatusColumnWidth = 16 // fits [99cf +99 -99]
+
 // FormatGitStatus formats git status for display
 // Returns empty string for clean repos (no indicator shown)
-// Format: [4 changed files, 2 commits ahead, 1 commit behind]
+// Format: [13cf +2 -1] (compact: cf=changed files, +=ahead, -=behind)
 func FormatGitStatus(dirty, ahead, behind int) string {
 	if dirty == 0 && ahead == 0 && behind == 0 {
 		return ""
@@ -197,32 +200,46 @@ func FormatGitStatus(dirty, ahead, behind int) string {
 	var parts []string
 
 	if dirty > 0 {
-		label := "changed files"
-		if dirty == 1 {
-			label = "changed file"
-		}
-		parts = append(parts, GitDirtyStyle.Render(fmt.Sprintf("%d %s", dirty, label)))
+		parts = append(parts, GitDirtyStyle.Render(fmt.Sprintf("%dcf", dirty)))
 	}
 	if ahead > 0 {
-		label := "commits ahead"
-		if ahead == 1 {
-			label = "commit ahead"
-		}
-		parts = append(parts, GitAheadStyle.Render(fmt.Sprintf("%d %s", ahead, label)))
+		parts = append(parts, GitAheadStyle.Render(fmt.Sprintf("+%d", ahead)))
 	}
 	if behind > 0 {
-		label := "commits behind"
-		if behind == 1 {
-			label = "commit behind"
-		}
-		parts = append(parts, GitBehindStyle.Render(fmt.Sprintf("%d %s", behind, label)))
+		parts = append(parts, GitBehindStyle.Render(fmt.Sprintf("-%d", behind)))
 	}
 
 	if len(parts) == 0 {
 		return ""
 	}
 
-	return "[" + strings.Join(parts, ", ") + "]"
+	return "[" + strings.Join(parts, " ") + "]"
+}
+
+// GitStatusWidth returns the visual width of a git status string (without ANSI codes)
+func GitStatusWidth(dirty, ahead, behind int) int {
+	if dirty == 0 && ahead == 0 && behind == 0 {
+		return 0
+	}
+
+	var parts []string
+
+	if dirty > 0 {
+		parts = append(parts, fmt.Sprintf("%dcf", dirty))
+	}
+	if ahead > 0 {
+		parts = append(parts, fmt.Sprintf("+%d", ahead))
+	}
+	if behind > 0 {
+		parts = append(parts, fmt.Sprintf("-%d", behind))
+	}
+
+	if len(parts) == 0 {
+		return 0
+	}
+
+	// [parts joined by " "]
+	return len("[") + len(strings.Join(parts, " ")) + len("]")
 }
 
 // ScrollbarChars returns scrollbar characters for each visible line

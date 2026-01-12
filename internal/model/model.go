@@ -42,21 +42,22 @@ type Item struct {
 
 // Model is the main application state
 type Model struct {
-	sessions       []tmux.Session
-	claudeStatuses map[string]claude.Status
-	gitStatuses    map[string]git.Status
-	currentSession string
-	cursor         int
-	items          []Item // Flattened list of visible items
-	mode           Mode
-	message        string
-	messageIsError bool
-	input          textinput.Model
-	killTarget     string // Name of session/window being killed
-	removeTarget   string // Full path of folder being removed
-	config         config.Config
-	maxNameWidth   int    // For column alignment
-	filter         string // Current filter text for fuzzy matching
+	sessions          []tmux.Session
+	claudeStatuses    map[string]claude.Status
+	gitStatuses       map[string]git.Status
+	currentSession    string
+	cursor            int
+	items             []Item // Flattened list of visible items
+	mode              Mode
+	message           string
+	messageIsError    bool
+	input             textinput.Model
+	killTarget        string // Name of session/window being killed
+	removeTarget      string // Full path of folder being removed
+	config            config.Config
+	maxNameWidth      int    // For column alignment
+	maxGitStatusWidth int    // For git status column alignment
+	filter            string // Current filter text for fuzzy matching
 
 	// Directory picker state
 	projectDirs     []string // All scanned directories
@@ -1082,6 +1083,7 @@ func (m *Model) loadClaudeStatuses() {
 
 func (m *Model) loadGitStatuses() {
 	m.gitStatuses = make(map[string]git.Status)
+	m.maxGitStatusWidth = 0
 	if !m.config.GitStatusEnabled {
 		return
 	}
@@ -1094,6 +1096,10 @@ func (m *Model) loadGitStatuses() {
 		if status.IsRepo && !status.IsClean() {
 			m.gitStatuses[s.Name] = status
 		}
+	}
+	// Use fixed column width if any git statuses exist
+	if len(m.gitStatuses) > 0 {
+		m.maxGitStatusWidth = ui.GitStatusColumnWidth
 	}
 }
 
@@ -1720,10 +1726,21 @@ func (m Model) renderSessionWithLabel(session tmux.Session, num int, isFirst boo
 		b.WriteString(ui.TimeStyle.Render(timePadded))
 	}
 
-	// Git status
-	if status, ok := m.gitStatuses[session.Name]; ok {
+	// Git status (fixed width column)
+	if m.maxGitStatusWidth > 0 {
 		b.WriteString(" ")
-		b.WriteString(ui.FormatGitStatus(status.Dirty, status.Ahead, status.Behind))
+		if status, ok := m.gitStatuses[session.Name]; ok {
+			formatted := ui.FormatGitStatus(status.Dirty, status.Ahead, status.Behind)
+			actualWidth := ui.GitStatusWidth(status.Dirty, status.Ahead, status.Behind)
+			b.WriteString(formatted)
+			// Pad to max width
+			if actualWidth < m.maxGitStatusWidth {
+				b.WriteString(strings.Repeat(" ", m.maxGitStatusWidth-actualWidth))
+			}
+		} else {
+			// Empty placeholder for alignment
+			b.WriteString(strings.Repeat(" ", m.maxGitStatusWidth))
+		}
 	}
 
 	// Claude status
