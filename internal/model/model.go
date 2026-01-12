@@ -28,6 +28,7 @@ const (
 	ModeConfirmKill
 	ModeCreate
 	ModePickDirectory
+	ModeConfirmRemoveFolder
 	ModeCloneRepo
 )
 
@@ -50,6 +51,7 @@ type Model struct {
 	messageIsError bool
 	input          textinput.Model
 	killTarget     string // Name of session/window being killed
+	removeTarget   string // Full path of folder being removed
 	config         config.Config
 	maxNameWidth   int    // For column alignment
 	filter         string // Current filter text for fuzzy matching
@@ -233,6 +235,8 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleCreateMode(msg)
 	case ModePickDirectory:
 		return m.handlePickDirectoryMode(msg)
+	case ModeConfirmRemoveFolder:
+		return m.handleConfirmRemoveFolderMode(msg)
 	case ModeCloneRepo:
 		return m.handleCloneRepoMode(msg)
 	}
@@ -433,6 +437,9 @@ func (m *Model) handlePickDirectoryMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(m.projectFiltered) > 0 && m.projectCursor < len(m.projectFiltered) {
 			return m.createSessionFromDir(m.projectFiltered[m.projectCursor])
 		}
+
+	case key.Matches(msg, keys.Kill):
+		return m.confirmRemoveFolder()
 
 	case key.Matches(msg, keys.Quit):
 		return m, tea.Quit
@@ -930,6 +937,64 @@ func (m *Model) killCurrent() (tea.Model, tea.Cmd) {
 	return m, tea.Batch(m.loadSessions, clearMessageAfter(5*time.Second))
 }
 
+func (m *Model) handleConfirmRemoveFolderMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keys := ui.DefaultKeyMap
+
+	switch {
+	case key.Matches(msg, keys.Kill):
+		return m.removeFolder()
+	case key.Matches(msg, keys.Cancel):
+		m.mode = ModePickDirectory
+		m.message = ""
+		m.removeTarget = ""
+	}
+
+	return m, nil
+}
+
+func (m *Model) confirmRemoveFolder() (tea.Model, tea.Cmd) {
+	if len(m.projectFiltered) == 0 || m.projectCursor >= len(m.projectFiltered) {
+		return m, nil
+	}
+
+	m.removeTarget = m.projectFiltered[m.projectCursor]
+	displayPath := m.extractDisplayPath(m.removeTarget)
+	m.message = fmt.Sprintf("Remove \"%s\" from disk?", displayPath)
+	m.mode = ModeConfirmRemoveFolder
+	return m, nil
+}
+
+func (m *Model) removeFolder() (tea.Model, tea.Cmd) {
+	if m.removeTarget == "" {
+		return m, nil
+	}
+
+	displayPath := m.extractDisplayPath(m.removeTarget)
+	sessionName := m.extractSessionName(m.removeTarget)
+
+	// Kill associated session if it exists
+	if tmux.SessionExists(sessionName) {
+		_ = tmux.KillSession(sessionName)
+	}
+
+	if err := os.RemoveAll(m.removeTarget); err != nil {
+		m.setError("Failed to remove: %v", err)
+		m.mode = ModePickDirectory
+		m.removeTarget = ""
+		return m, nil
+	}
+
+	m.message = fmt.Sprintf("Removed \"%s\"", displayPath)
+	m.mode = ModePickDirectory
+	m.removeTarget = ""
+
+	// Rescan directories and clear message after delay
+	m.projectDirs = m.scanProjectDirectories()
+	m.filterProjectDirs()
+
+	return m, clearMessageAfter(5 * time.Second)
+}
+
 func (m *Model) createSession(name string) (tea.Model, tea.Cmd) {
 	// Sanitize session name (spaces, dots, colons break tmux target syntax)
 	name = sanitizeSessionName(name)
@@ -1164,7 +1229,7 @@ func sanitizeSessionName(name string) string {
 
 // View implements tea.Model
 func (m Model) View() string {
-	if m.mode == ModePickDirectory {
+	if m.mode == ModePickDirectory || m.mode == ModeConfirmRemoveFolder {
 		return m.viewPickDirectory()
 	}
 	if m.mode == ModeCloneRepo {
@@ -1241,7 +1306,11 @@ func (m Model) viewPickDirectory() string {
 
 	// Add padding to push footer to bottom
 	// Footer = border (1) + statusline (1) + help line (1) = 3 lines
+	// Add 1 more for message line when in confirmation mode
 	footerLines := 3
+	if m.mode == ModeConfirmRemoveFolder {
+		footerLines = 4
+	}
 	contentH := m.contentHeight()
 	if contentH > 0 {
 		padding := contentH - usedLines - footerLines
@@ -1253,6 +1322,16 @@ func (m Model) viewPickDirectory() string {
 	b.WriteString(ui.RenderBorder(m.borderWidth()))
 	b.WriteString("\n")
 
+	// Message line (only for confirmation mode)
+	if m.mode == ModeConfirmRemoveFolder && m.message != "" {
+		if m.messageIsError {
+			b.WriteString(ui.ErrorMessageStyle.Render(m.message))
+		} else {
+			b.WriteString(ui.MessageStyle.Render(m.message))
+		}
+		b.WriteString("\n")
+	}
+
 	// Statusline (directory counts)
 	var statusline string
 	if m.projectFilter != "" {
@@ -1263,10 +1342,16 @@ func (m Model) viewPickDirectory() string {
 	b.WriteString(ui.StatuslineStyle.Render(statusline))
 	b.WriteString("\n")
 
-	if m.projectFilter != "" {
-		b.WriteString(ui.FooterStyle.Render(ui.HelpFiltering()))
-	} else {
-		b.WriteString(ui.FooterStyle.Render(ui.HelpPickDirectory()))
+	// Help line
+	switch m.mode {
+	case ModeConfirmRemoveFolder:
+		b.WriteString(ui.FooterStyle.Render(ui.HelpConfirmRemoveFolder()))
+	default:
+		if m.projectFilter != "" {
+			b.WriteString(ui.FooterStyle.Render(ui.HelpFiltering()))
+		} else {
+			b.WriteString(ui.FooterStyle.Render(ui.HelpPickDirectory()))
+		}
 	}
 	return ui.AppStyle.Render(b.String())
 }

@@ -134,7 +134,14 @@ func HelpCreate() string {
 func HelpPickDirectory() string {
 	return helpItem("↑↓", "nav") + helpSep() +
 		helpItem("enter", "select") + helpSep() +
-		helpItem("esc", "back/cancel")
+		helpItem("C-x", "remove") + helpSep() +
+		helpItem("esc", "back")
+}
+
+// HelpConfirmRemoveFolder returns the help text for folder removal confirmation
+func HelpConfirmRemoveFolder() string {
+	return helpItem("C-x", "confirm") + helpSep() +
+		helpItem("esc", "cancel")
 }
 
 // HelpCloneRepo returns the help text for clone repo mode
