@@ -908,7 +908,8 @@ func (m *Model) openLazygit() (tea.Model, tea.Cmd) {
 	}
 
 	// Schedule lazygit popup to open after tsm closes, then reopen tsm with same dimensions
-	cmd := fmt.Sprintf("sleep 0.1 && tmux display-popup -w90%% -h90%% -d '%s' -E lazygit; tmux display-popup -w%d -h%d -B -E tsm", path, m.width, m.height)
+	cmd := fmt.Sprintf("sleep 0.1 && tmux display-popup -w%s -h%s -d '%s' -E lazygit; tmux display-popup -w%d -h%d -B -E tsm",
+		m.config.LazygitPopup.Width, m.config.LazygitPopup.Height, path, m.width, m.height)
 	_ = exec.Command("tmux", "run-shell", "-b", cmd).Start()
 
 	return m, tea.Quit

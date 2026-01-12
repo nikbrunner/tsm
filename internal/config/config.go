@@ -33,6 +33,15 @@ type Config struct {
 
 	// Default directory for new sessions created with C-n
 	DefaultSessionDir string `yaml:"default_session_dir"`
+
+	// Lazygit popup dimensions
+	LazygitPopup PopupConfig `yaml:"lazygit_popup"`
+}
+
+// PopupConfig holds popup dimension settings
+type PopupConfig struct {
+	Width  string `yaml:"width"`
+	Height string `yaml:"height"`
 }
 
 // DefaultConfig returns configuration with sensible defaults
@@ -47,6 +56,10 @@ func DefaultConfig() Config {
 		ProjectDirs:         []string{filepath.Join(home, "repos")},
 		ProjectDepth:        2,
 		DefaultSessionDir:   home,
+		LazygitPopup: PopupConfig{
+			Width:  "90%",
+			Height: "90%",
+		},
 	}
 }
 
@@ -154,6 +167,11 @@ func Init() error {
 
 # Default directory for new sessions created with C-n
 # default_session_dir: ~
+
+# Lazygit popup dimensions (C-g)
+# lazygit_popup:
+#   width: 90%
+#   height: 90%
 `
 
 	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
