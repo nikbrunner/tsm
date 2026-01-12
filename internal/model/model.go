@@ -59,15 +59,11 @@ type Model struct {
 	maxGitStatusWidth int    // For git status column alignment
 	filter            string // Current filter text for fuzzy matching
 
-	// Directory picker state
-	projectDirs     []string // All scanned directories
-	projectFiltered []string // Filtered list based on projectFilter
-	projectFilter   string   // Current filter text for directory picker
-	projectCursor   int      // Selected item in directory list
+	// Directory picker state (uses ScrollList for cursor/scroll/filter)
+	projectList *ui.ScrollList[string]
 
 	// Scroll state
-	scrollOffset        int // Scroll offset for session list
-	projectScrollOffset int // Scroll offset for directory picker
+	scrollOffset int // Scroll offset for session list
 
 	// Window size
 	width  int
@@ -76,20 +72,16 @@ type Model struct {
 	// Animation state
 	animationFrame int
 
-	// Clone repo mode state
-	cloneRepos          []string // Available repos to clone (filtered)
-	cloneReposAll       []string // All available repos (unfiltered)
-	cloneFilter         string   // Current filter text
-	cloneCursor         int      // Selected repo index
-	cloneScrollOffset   int      // Scroll offset
-	cloneBasePath       string   // From repos config
-	cloneLoading        bool     // True while fetching repos
-	cloneError          string   // Error message if fetch/clone fails
-	cloneCloning        bool     // True while cloning
-	cloneCloningRepo    string   // Repo being cloned
-	cloneSuccess        bool     // True when clone completed, awaiting confirmation
-	cloneSuccessPath    string   // Path of cloned repo (for layout)
-	cloneSuccessSession string   // Session name to switch to
+	// Clone repo mode state (uses ScrollList for cursor/scroll/filter)
+	cloneList           *ui.ScrollList[string]
+	cloneBasePath       string // From repos config
+	cloneLoading        bool   // True while fetching repos
+	cloneError          string // Error message if fetch/clone fails
+	cloneCloning        bool   // True while cloning
+	cloneCloningRepo    string // Repo being cloned
+	cloneSuccess        bool   // True when clone completed, awaiting confirmation
+	cloneSuccessPath    string // Path of cloned repo (for layout)
+	cloneSuccessSession string // Session name to switch to
 }
 
 // New creates a new Model
@@ -97,10 +89,23 @@ func New(currentSession string, cfg config.Config) Model {
 	ti := textinput.New()
 	ti.CharLimit = 50
 
+	// Create project list with filter function that matches on directory basename
+	projectList := ui.NewScrollList(func(fullPath string, filter string) bool {
+		name := filepath.Base(fullPath)
+		return strings.Contains(strings.ToLower(name), filter)
+	})
+
+	// Create clone list with filter function that matches on repo name
+	cloneList := ui.NewScrollList(func(repo string, filter string) bool {
+		return strings.Contains(strings.ToLower(repo), filter)
+	})
+
 	return Model{
 		currentSession: currentSession,
 		input:          ti,
 		config:         cfg,
+		projectList:    projectList,
+		cloneList:      cloneList,
 	}
 }
 
@@ -187,10 +192,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case cloneReposLoadedMsg:
 		m.cloneLoading = false
-		m.cloneReposAll = msg.repos
-		m.cloneRepos = msg.repos
-		m.cloneCursor = 0
-		m.cloneScrollOffset = 0
+		m.cloneList.SetItems(msg.repos)
 		if len(msg.repos) == 0 {
 			m.cloneError = "All repositories are already cloned!"
 		}
@@ -299,11 +301,8 @@ func (m *Model) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.PickDirectory):
 		m.mode = ModePickDirectory
 		m.filter = "" // Clear any active filter
-		m.projectFilter = ""
-		m.projectCursor = 0
-		m.projectScrollOffset = 0
-		m.projectDirs = m.scanProjectDirectories()
-		m.projectFiltered = m.projectDirs
+		m.projectList.Reset()
+		m.projectList.SetItems(m.scanProjectDirectories())
 		// Request window size to get proper height for layout
 		return m, tea.WindowSize()
 
@@ -317,11 +316,8 @@ func (m *Model) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cloneBasePath = cfg.ReposBasePath
 		m.mode = ModeCloneRepo
 		m.filter = "" // Clear any active filter
-		m.cloneFilter = ""
-		m.cloneCursor = 0
-		m.cloneScrollOffset = 0
-		m.cloneRepos = nil
-		m.cloneReposAll = nil
+		m.cloneList.Reset()
+		m.cloneList.Clear()
 		m.cloneError = ""
 		m.cloneLoading = true
 		m.cloneCloning = false
@@ -419,30 +415,22 @@ func (m *Model) handlePickDirectoryMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Cancel):
 		// Clear filter first, then exit on second press
-		if m.projectFilter != "" {
-			m.projectFilter = ""
-			m.projectFiltered = m.projectDirs
-			m.projectCursor = 0
+		if m.projectList.Filter() != "" {
+			m.projectList.SetFilter("")
 			return m, nil
 		}
 		m.mode = ModeNormal
 		return m, nil
 
 	case key.Matches(msg, keys.Up):
-		if m.projectCursor > 0 {
-			m.projectCursor--
-			m.updateProjectScrollOffset()
-		}
+		m.projectList.MoveCursor(-1)
 
 	case key.Matches(msg, keys.Down):
-		if m.projectCursor < len(m.projectFiltered)-1 {
-			m.projectCursor++
-			m.updateProjectScrollOffset()
-		}
+		m.projectList.MoveCursor(1)
 
 	case key.Matches(msg, keys.Select):
-		if len(m.projectFiltered) > 0 && m.projectCursor < len(m.projectFiltered) {
-			return m.createSessionFromDir(m.projectFiltered[m.projectCursor])
+		if selected, ok := m.projectList.SelectedItem(); ok {
+			return m.createSessionFromDir(selected)
 		}
 
 	case key.Matches(msg, keys.Kill):
@@ -452,14 +440,13 @@ func (m *Model) handlePickDirectoryMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case msg.Type == tea.KeyBackspace:
-		if len(m.projectFilter) > 0 {
-			m.projectFilter = m.projectFilter[:len(m.projectFilter)-1]
-			m.filterProjectDirs()
+		filter := m.projectList.Filter()
+		if len(filter) > 0 {
+			m.projectList.SetFilter(filter[:len(filter)-1])
 		}
 
 	case msg.Type == tea.KeyRunes:
-		m.projectFilter += string(msg.Runes)
-		m.filterProjectDirs()
+		m.projectList.SetFilter(m.projectList.Filter() + string(msg.Runes))
 	}
 
 	return m, nil
@@ -502,11 +489,8 @@ func (m *Model) handleCloneRepoMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		// Clear filter first, then exit on second press
-		if m.cloneFilter != "" {
-			m.cloneFilter = ""
-			m.cloneRepos = m.cloneReposAll
-			m.cloneCursor = 0
-			m.cloneScrollOffset = 0
+		if m.cloneList.Filter() != "" {
+			m.cloneList.SetFilter("")
 			return m, nil
 		}
 		// If there's an error, clear it and go back
@@ -519,94 +503,36 @@ func (m *Model) handleCloneRepoMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, keys.Up):
-		if m.cloneCursor > 0 {
-			m.cloneCursor--
-			m.updateCloneScrollOffset()
-		}
+		m.cloneList.MoveCursor(-1)
 
 	case key.Matches(msg, keys.Down):
-		if m.cloneCursor < len(m.cloneRepos)-1 {
-			m.cloneCursor++
-			m.updateCloneScrollOffset()
-		}
+		m.cloneList.MoveCursor(1)
 
 	case key.Matches(msg, keys.Select):
-		if len(m.cloneRepos) > 0 && m.cloneCursor < len(m.cloneRepos) && !m.cloneLoading && !m.cloneCloning && m.cloneError == "" {
-			return m.cloneSelectedRepo()
+		if selected, ok := m.cloneList.SelectedItem(); ok && !m.cloneLoading && !m.cloneCloning && m.cloneError == "" {
+			return m.cloneSelectedRepo(selected)
 		}
 
 	case key.Matches(msg, keys.Quit):
 		return m, tea.Quit
 
 	case msg.Type == tea.KeyBackspace:
-		if len(m.cloneFilter) > 0 && !m.cloneLoading && !m.cloneCloning {
-			m.cloneFilter = m.cloneFilter[:len(m.cloneFilter)-1]
-			m.filterCloneRepos()
+		filter := m.cloneList.Filter()
+		if len(filter) > 0 && !m.cloneLoading && !m.cloneCloning {
+			m.cloneList.SetFilter(filter[:len(filter)-1])
 		}
 
 	case msg.Type == tea.KeyRunes:
 		if !m.cloneLoading && !m.cloneCloning && m.cloneError == "" {
-			m.cloneFilter += string(msg.Runes)
-			m.filterCloneRepos()
+			m.cloneList.SetFilter(m.cloneList.Filter() + string(msg.Runes))
 		}
 	}
 
 	return m, nil
 }
 
-// filterCloneRepos filters the clone repos based on cloneFilter
-func (m *Model) filterCloneRepos() {
-	if m.cloneFilter == "" {
-		m.cloneRepos = m.cloneReposAll
-	} else {
-		filterLower := strings.ToLower(m.cloneFilter)
-		m.cloneRepos = nil
-		for _, repo := range m.cloneReposAll {
-			if fuzzyMatch(repo, filterLower) {
-				m.cloneRepos = append(m.cloneRepos, repo)
-			}
-		}
-	}
-	// Reset cursor if out of bounds
-	if m.cloneCursor >= len(m.cloneRepos) {
-		m.cloneCursor = len(m.cloneRepos) - 1
-	}
-	if m.cloneCursor < 0 {
-		m.cloneCursor = 0
-	}
-	m.updateCloneScrollOffset()
-}
-
-// updateCloneScrollOffset adjusts scroll offset to keep cursor visible
-func (m *Model) updateCloneScrollOffset() {
-	maxVisible := m.cloneMaxVisibleItems()
-	if m.cloneCursor < m.cloneScrollOffset {
-		m.cloneScrollOffset = m.cloneCursor
-	}
-	if m.cloneCursor >= m.cloneScrollOffset+maxVisible {
-		m.cloneScrollOffset = m.cloneCursor - maxVisible + 1
-	}
-	if m.cloneScrollOffset < 0 {
-		m.cloneScrollOffset = 0
-	}
-}
-
-// cloneMaxVisibleItems returns the number of items visible in clone mode
-func (m *Model) cloneMaxVisibleItems() int {
-	contentH := m.contentHeight()
-	if contentH > 0 {
-		availableForContent := contentH - 5
-		if availableForContent > 0 {
-			return availableForContent
-		}
-	}
-	// Fallback when height unknown
-	return 10
-}
-
 // cloneSelectedRepo starts cloning the selected repository
-func (m *Model) cloneSelectedRepo() (tea.Model, tea.Cmd) {
-	selected := m.cloneRepos[m.cloneCursor]
+func (m *Model) cloneSelectedRepo(selected string) (tea.Model, tea.Cmd) {
 	m.cloneCloning = true
 	m.cloneCloningRepo = selected
 
@@ -653,31 +579,6 @@ func (m *Model) fetchAvailableReposCmd() tea.Cmd {
 
 		return cloneReposLoadedMsg{repos: uncloned}
 	}
-}
-
-// filterProjectDirs filters the project directories based on projectFilter
-// Filters match against the display path (last N components), not full path
-func (m *Model) filterProjectDirs() {
-	if m.projectFilter == "" {
-		m.projectFiltered = m.projectDirs
-	} else {
-		filterLower := strings.ToLower(m.projectFilter)
-		m.projectFiltered = nil
-		for _, fullPath := range m.projectDirs {
-			displayPath := m.extractDisplayPath(fullPath)
-			if fuzzyMatch(displayPath, filterLower) {
-				m.projectFiltered = append(m.projectFiltered, fullPath)
-			}
-		}
-	}
-	// Reset cursor if out of bounds
-	if m.projectCursor >= len(m.projectFiltered) {
-		m.projectCursor = len(m.projectFiltered) - 1
-	}
-	if m.projectCursor < 0 {
-		m.projectCursor = 0
-	}
-	m.updateProjectScrollOffset()
 }
 
 func (m *Model) createSessionFromDir(fullPath string) (tea.Model, tea.Cmd) {
@@ -984,11 +885,12 @@ func (m *Model) handleConfirmRemoveFolderMode(msg tea.KeyMsg) (tea.Model, tea.Cm
 }
 
 func (m *Model) confirmRemoveFolder() (tea.Model, tea.Cmd) {
-	if len(m.projectFiltered) == 0 || m.projectCursor >= len(m.projectFiltered) {
+	selected, ok := m.projectList.SelectedItem()
+	if !ok {
 		return m, nil
 	}
 
-	m.removeTarget = m.projectFiltered[m.projectCursor]
+	m.removeTarget = selected
 	displayPath := m.extractDisplayPath(m.removeTarget)
 	m.message = fmt.Sprintf("Remove \"%s\" from disk?", displayPath)
 	m.mode = ModeConfirmRemoveFolder
@@ -1019,9 +921,8 @@ func (m *Model) removeFolder() (tea.Model, tea.Cmd) {
 	m.mode = ModePickDirectory
 	m.removeTarget = ""
 
-	// Rescan directories and clear message after delay
-	m.projectDirs = m.scanProjectDirectories()
-	m.filterProjectDirs()
+	// Rescan directories and re-apply current filter
+	m.projectList.SetItems(m.scanProjectDirectories())
 
 	return m, clearMessageAfter(5 * time.Second)
 }
@@ -1216,23 +1117,6 @@ func (m *Model) projectMaxVisibleItems() int {
 	return 10
 }
 
-// updateProjectScrollOffset adjusts scroll offset to keep cursor visible in project list
-func (m *Model) updateProjectScrollOffset() {
-	maxVisible := m.projectMaxVisibleItems()
-	// If cursor is above visible area, scroll up
-	if m.projectCursor < m.projectScrollOffset {
-		m.projectScrollOffset = m.projectCursor
-	}
-	// If cursor is below visible area, scroll down
-	if m.projectCursor >= m.projectScrollOffset+maxVisible {
-		m.projectScrollOffset = m.projectCursor - maxVisible + 1
-	}
-	// Ensure scroll offset is not negative
-	if m.projectScrollOffset < 0 {
-		m.projectScrollOffset = 0
-	}
-}
-
 // fuzzyMatch checks if the pattern matches the text (case-insensitive, substring match)
 func fuzzyMatch(text, pattern string) bool {
 	textLower := strings.ToLower(text)
@@ -1290,10 +1174,11 @@ func (m Model) viewPickDirectory() string {
 	usedLines := 0
 
 	// Header - always show "Select directory", append filter if active
-	if m.projectFilter != "" {
+	filter := m.projectList.Filter()
+	if filter != "" {
 		b.WriteString(ui.HeaderStyle.Render("Select directory"))
 		b.WriteString("  ")
-		b.WriteString(ui.FilterStyle.Render(m.projectFilter))
+		b.WriteString(ui.FilterStyle.Render(filter))
 	} else {
 		b.WriteString(ui.HeaderStyle.Render("Select directory"))
 	}
@@ -1307,26 +1192,25 @@ func (m Model) viewPickDirectory() string {
 	// Use shared helper for consistent visible item calculation
 	maxItems := m.projectMaxVisibleItems()
 
-	// Directory list (only visible items)
-	endIdx := m.projectScrollOffset + maxItems
-	if endIdx > len(m.projectFiltered) {
-		endIdx = len(m.projectFiltered)
-	}
-	visibleCount := endIdx - m.projectScrollOffset
+	// Update ScrollList height for proper scrolling
+	m.projectList.SetHeight(maxItems)
+
+	// Get visible items from ScrollList
+	visibleItems := m.projectList.VisibleItems()
+	scrollOffset := m.projectList.ScrollOffset()
+	totalItems := m.projectList.Len()
 
 	// Get scrollbar characters for each line
-	scrollbar := ui.ScrollbarChars(len(m.projectFiltered), maxItems, m.projectScrollOffset, visibleCount)
+	scrollbar := ui.ScrollbarChars(totalItems, maxItems, scrollOffset, len(visibleItems))
 
 	contentLines := 0
-	for i := m.projectScrollOffset; i < endIdx; i++ {
-		fullPath := m.projectFiltered[i]
+	for i, fullPath := range visibleItems {
 		displayPath := m.extractDisplayPath(fullPath)
-		selected := i == m.projectCursor
-		lineIdx := i - m.projectScrollOffset
+		selected := m.projectList.IsSelected(scrollOffset + i)
 
 		// Scrollbar on the left
-		if lineIdx < len(scrollbar) {
-			b.WriteString(scrollbar[lineIdx])
+		if i < len(scrollbar) {
+			b.WriteString(scrollbar[i])
 			b.WriteString(" ")
 		}
 
@@ -1340,8 +1224,8 @@ func (m Model) viewPickDirectory() string {
 	}
 
 	// Empty state
-	if len(m.projectFiltered) == 0 {
-		if m.projectFilter != "" {
+	if totalItems == 0 {
+		if filter != "" {
 			b.WriteString("  No directories matching filter\n")
 		} else {
 			b.WriteString("  No directories found\n")
@@ -1380,10 +1264,11 @@ func (m Model) viewPickDirectory() string {
 
 	// Statusline (directory counts)
 	var statusline string
-	if m.projectFilter != "" {
-		statusline = fmt.Sprintf("%d/%d directories", len(m.projectFiltered), len(m.projectDirs))
+	allItems := m.projectList.Items()
+	if filter != "" {
+		statusline = fmt.Sprintf("%d/%d directories", totalItems, len(allItems))
 	} else {
-		statusline = fmt.Sprintf("%d directories", len(m.projectDirs))
+		statusline = fmt.Sprintf("%d directories", len(allItems))
 	}
 	b.WriteString(ui.StatuslineStyle.Render(statusline))
 	b.WriteString("\n")
@@ -1393,7 +1278,7 @@ func (m Model) viewPickDirectory() string {
 	case ModeConfirmRemoveFolder:
 		b.WriteString(ui.FooterStyle.Render(ui.HelpConfirmRemoveFolder()))
 	default:
-		if m.projectFilter != "" {
+		if filter != "" {
 			b.WriteString(ui.FooterStyle.Render(ui.HelpFiltering()))
 		} else {
 			b.WriteString(ui.FooterStyle.Render(ui.HelpPickDirectory()))
@@ -1408,12 +1293,13 @@ func (m Model) viewCloneRepo() string {
 	usedLines := 0
 
 	// Header
+	cloneFilter := m.cloneList.Filter()
 	if m.cloneSuccess {
 		b.WriteString(ui.HeaderStyle.Render("Clone complete"))
-	} else if m.cloneFilter != "" {
+	} else if cloneFilter != "" {
 		b.WriteString(ui.HeaderStyle.Render("Clone repository"))
 		b.WriteString("  ")
-		b.WriteString(ui.FilterStyle.Render(m.cloneFilter))
+		b.WriteString(ui.FilterStyle.Render(cloneFilter))
 	} else {
 		b.WriteString(ui.HeaderStyle.Render("Clone repository"))
 	}
@@ -1446,31 +1332,36 @@ func (m Model) viewCloneRepo() string {
 	} else if m.cloneError != "" {
 		b.WriteString(ui.ErrorMessageStyle.Render("  "+m.cloneError) + "\n")
 		contentLines++
-	} else if len(m.cloneRepos) == 0 {
-		if m.cloneFilter != "" {
+	} else if m.cloneList.Len() == 0 {
+		if cloneFilter != "" {
 			b.WriteString("  No repositories matching filter\n")
 		} else {
 			b.WriteString("  No repositories available to clone\n")
 		}
 		contentLines++
 	} else {
-		// Repository list
-		maxItems := m.cloneMaxVisibleItems()
-		endIdx := m.cloneScrollOffset + maxItems
-		if endIdx > len(m.cloneRepos) {
-			endIdx = len(m.cloneRepos)
+		// Repository list - calculate max visible items (same as project picker)
+		contentH := m.contentHeight()
+		maxItems := 10 // fallback
+		if contentH > 0 {
+			// Reserve: header(1) + header border(1) + footer border(1) + statusline(1) + help(1) = 5 lines
+			if available := contentH - 5; available > 0 {
+				maxItems = available
+			}
 		}
-		visibleCount := endIdx - m.cloneScrollOffset
+		m.cloneList.SetHeight(maxItems)
 
-		scrollbar := ui.ScrollbarChars(len(m.cloneRepos), maxItems, m.cloneScrollOffset, visibleCount)
+		visibleRepos := m.cloneList.VisibleItems()
+		scrollOffset := m.cloneList.ScrollOffset()
 
-		for i := m.cloneScrollOffset; i < endIdx; i++ {
-			repo := m.cloneRepos[i]
-			selected := i == m.cloneCursor
-			lineIdx := i - m.cloneScrollOffset
+		scrollbar := ui.ScrollbarChars(m.cloneList.Len(), m.cloneList.Height(), scrollOffset, len(visibleRepos))
 
-			if lineIdx < len(scrollbar) {
-				b.WriteString(scrollbar[lineIdx])
+		for i, repo := range visibleRepos {
+			absoluteIdx := scrollOffset + i
+			selected := m.cloneList.IsSelected(absoluteIdx)
+
+			if i < len(scrollbar) {
+				b.WriteString(scrollbar[i])
 				b.WriteString(" ")
 			}
 
@@ -1506,10 +1397,10 @@ func (m Model) viewCloneRepo() string {
 		statusline = "Loading..."
 	} else if m.cloneCloning {
 		statusline = "Cloning..."
-	} else if m.cloneFilter != "" {
-		statusline = fmt.Sprintf("%d/%d repositories", len(m.cloneRepos), len(m.cloneReposAll))
+	} else if cloneFilter != "" {
+		statusline = fmt.Sprintf("%d/%d repositories", m.cloneList.Len(), len(m.cloneList.Items()))
 	} else {
-		statusline = fmt.Sprintf("%d repositories", len(m.cloneReposAll))
+		statusline = fmt.Sprintf("%d repositories", len(m.cloneList.Items()))
 	}
 	b.WriteString(ui.StatuslineStyle.Render(statusline))
 	b.WriteString("\n")
@@ -1519,7 +1410,7 @@ func (m Model) viewCloneRepo() string {
 		b.WriteString(ui.FooterStyle.Render(ui.HelpCloneSuccess()))
 	} else if m.cloneLoading || m.cloneCloning {
 		b.WriteString(ui.FooterStyle.Render(ui.HelpCloneRepoLoading()))
-	} else if m.cloneFilter != "" {
+	} else if cloneFilter != "" {
 		b.WriteString(ui.FooterStyle.Render(ui.HelpFiltering()))
 	} else {
 		b.WriteString(ui.FooterStyle.Render(ui.HelpCloneRepo()))
@@ -1567,6 +1458,12 @@ func (m Model) viewSessionList() string {
 		}
 	}
 
+	// Build layout for consistent column widths
+	layout := ui.RowLayout{
+		NameWidth:      m.maxNameWidth,
+		GitStatusWidth: m.maxGitStatusWidth,
+	}
+
 	contentLines := 0
 	for i := m.scrollOffset; i < endIdx; i++ {
 		item := m.items[i]
@@ -1581,12 +1478,27 @@ func (m Model) viewSessionList() string {
 		if item.IsSession {
 			session := m.sessions[item.SessionIndex]
 			sessionNum++
-			isFirst := sessionNum == 1
-			b.WriteString(m.renderSessionWithLabel(session, sessionNum, isFirst, selected))
+
+			// Build options for this row
+			opts := ui.SessionRowOpts{
+				Num:       sessionNum,
+				IsFirst:   sessionNum == 1,
+				Selected:  selected,
+				Expanded:  session.Expanded,
+				AnimFrame: m.animationFrame,
+			}
+			if status, ok := m.gitStatuses[session.Name]; ok {
+				opts.GitStatus = &status
+			}
+			if status, ok := m.claudeStatuses[session.Name]; ok {
+				opts.ClaudeStatus = &status
+			}
+
+			b.WriteString(ui.RenderSessionRow(session.Name, session.LastActivity, layout, opts))
 		} else {
 			session := m.sessions[item.SessionIndex]
 			window := session.Windows[item.WindowIndex]
-			b.WriteString(m.renderWindow(window, selected))
+			b.WriteString(ui.RenderWindowRow(window.Index, window.Name, ui.WindowRowOpts{Selected: selected}))
 		}
 		b.WriteString("\n")
 		contentLines++
@@ -1665,118 +1577,4 @@ func (m Model) viewSessionList() string {
 	}
 
 	return ui.AppStyle.Render(b.String())
-}
-
-func (m Model) renderSessionWithLabel(session tmux.Session, num int, isFirst bool, selected bool) string {
-	// Build the row with fixed-width columns
-	var b strings.Builder
-
-	// Number label
-	label := fmt.Sprintf("%d", num)
-	if selected {
-		b.WriteString(ui.IndexSelectedStyle.Render(label))
-	} else {
-		b.WriteString(ui.IndexStyle.Render(label))
-	}
-	b.WriteString(" ")
-
-	// Last session icon (fixed width column)
-	if isFirst {
-		if selected {
-			b.WriteString(ui.LastIconSelected)
-		} else {
-			b.WriteString(ui.LastIcon)
-		}
-	} else {
-		b.WriteString(" ")
-	}
-	b.WriteString(" ")
-
-	// Expand icon
-	if session.Expanded {
-		if selected {
-			b.WriteString(ui.ExpandedIconSelected)
-		} else {
-			b.WriteString(ui.ExpandedIcon)
-		}
-	} else {
-		if selected {
-			b.WriteString(ui.CollapsedIconSelected)
-		} else {
-			b.WriteString(ui.CollapsedIcon)
-		}
-	}
-	b.WriteString(" ")
-
-	// Session name (padded to max width)
-	namePadded := fmt.Sprintf("%-*s", m.maxNameWidth, session.Name)
-	if selected {
-		b.WriteString(ui.SessionNameSelectedStyle.Render(namePadded))
-	} else {
-		b.WriteString(namePadded)
-	}
-	b.WriteString("  ")
-
-	// Time ago (fixed width 8)
-	timeAgo := formatTimeAgo(session.LastActivity)
-	timePadded := fmt.Sprintf("%-8s", timeAgo)
-	if selected {
-		b.WriteString(ui.TimeSelectedStyle.Render(timePadded))
-	} else {
-		b.WriteString(ui.TimeStyle.Render(timePadded))
-	}
-
-	// Git status (fixed width column)
-	if m.maxGitStatusWidth > 0 {
-		b.WriteString(" ")
-		if status, ok := m.gitStatuses[session.Name]; ok {
-			formatted := ui.FormatGitStatus(status.Dirty, status.Ahead, status.Behind)
-			actualWidth := ui.GitStatusWidth(status.Dirty, status.Ahead, status.Behind)
-			b.WriteString(formatted)
-			// Pad to max width
-			if actualWidth < m.maxGitStatusWidth {
-				b.WriteString(strings.Repeat(" ", m.maxGitStatusWidth-actualWidth))
-			}
-		} else {
-			// Empty placeholder for alignment
-			b.WriteString(strings.Repeat(" ", m.maxGitStatusWidth))
-		}
-	}
-
-	// Claude status
-	if status, ok := m.claudeStatuses[session.Name]; ok {
-		b.WriteString(" ")
-		b.WriteString(ui.FormatClaudeStatus(status.State, m.animationFrame))
-	}
-
-	return ui.SessionStyle.Render(b.String())
-}
-
-func (m Model) renderWindow(window tmux.Window, selected bool) string {
-	var b strings.Builder
-
-	// Window index and name
-	windowText := fmt.Sprintf("%d: %s", window.Index, window.Name)
-	if selected {
-		b.WriteString(ui.WindowNameSelectedStyle.Render(windowText))
-	} else {
-		b.WriteString(windowText)
-	}
-
-	return ui.WindowStyle.Render(b.String())
-}
-
-func formatTimeAgo(t time.Time) string {
-	d := time.Since(t)
-
-	if d < time.Minute {
-		return fmt.Sprintf("%ds ago", int(d.Seconds()))
-	}
-	if d < time.Hour {
-		return fmt.Sprintf("%dm ago", int(d.Minutes()))
-	}
-	if d < 24*time.Hour {
-		return fmt.Sprintf("%dh ago", int(d.Hours()))
-	}
-	return fmt.Sprintf("%dd ago", int(d.Hours()/24))
 }
