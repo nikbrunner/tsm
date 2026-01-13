@@ -103,10 +103,7 @@ func runBookmark(slotStr string) error {
 	}
 
 	bookmark := cfg.Bookmarks[idx]
-	sessionName := bookmark.Name
-	if sessionName == "" {
-		sessionName = filepath.Base(bookmark.Path)
-	}
+	sessionName := filepath.Base(bookmark.Path)
 
 	// Create session if it doesn't exist
 	if !tmux.SessionExists(sessionName) {

@@ -49,7 +49,6 @@ type PopupConfig struct {
 
 // Bookmark represents a quick-access session bookmark
 type Bookmark struct {
-	Name string `yaml:"name,omitempty"` // Optional, derived from path if empty
 	Path string `yaml:"path"`
 }
 
@@ -191,8 +190,7 @@ func Init() error {
 # Use 'tsm tmux-bindings' to generate tmux keybindings
 # bookmarks:
 #   - path: ~/repos/my-project
-#   - name: notes
-#     path: ~/repos/notes
+#   - path: ~/repos/another-project
 `
 
 	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {

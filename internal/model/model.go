@@ -61,7 +61,8 @@ type Model struct {
 	filter            string // Current filter text for fuzzy matching
 
 	// Directory picker state (uses ScrollList for cursor/scroll/filter)
-	projectList *ui.ScrollList[string]
+	projectList       *ui.ScrollList[string]
+	returnToBookmarks bool // True if we should return to bookmarks mode after project picker
 
 	// Scroll state
 	scrollOffset int // Scroll offset for session list
@@ -104,12 +105,9 @@ func New(currentSession string, cfg config.Config) Model {
 		return strings.Contains(strings.ToLower(repo), filter)
 	})
 
-	// Create bookmark list with filter function that matches on name or path
+	// Create bookmark list with filter function that matches on path basename
 	bookmarkList := ui.NewScrollList(func(b config.Bookmark, filter string) bool {
-		name := b.Name
-		if name == "" {
-			name = filepath.Base(b.Path)
-		}
+		name := filepath.Base(b.Path)
 		return strings.Contains(strings.ToLower(name), filter) ||
 			strings.Contains(strings.ToLower(b.Path), filter)
 	})
@@ -317,7 +315,8 @@ func (m *Model) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, keys.PickDirectory):
 		m.mode = ModePickDirectory
-		m.filter = "" // Clear any active filter
+		m.filter = ""               // Clear any active filter
+		m.returnToBookmarks = false // Coming from normal mode, not bookmarks
 		m.projectList.Reset()
 		m.projectList.SetItems(m.scanProjectDirectories())
 		// Request window size to get proper height for layout
@@ -350,8 +349,8 @@ func (m *Model) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.bookmarkList.SetItems(m.config.Bookmarks)
 		return m, tea.WindowSize()
 
-	case key.Matches(msg, keys.QuickBookmark):
-		return m.quickAddBookmark()
+	case key.Matches(msg, keys.AddBookmark):
+		return m.addSelectedToBookmarks()
 
 	// Number jumps (only when no filter active)
 	case m.filter == "" && key.Matches(msg, keys.Jump1):
@@ -446,6 +445,13 @@ func (m *Model) handlePickDirectoryMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.projectList.SetFilter("")
 			return m, nil
 		}
+		// Return to bookmarks mode if we came from there
+		if m.returnToBookmarks {
+			m.returnToBookmarks = false
+			m.mode = ModeBookmarks
+			m.bookmarkList.SetItems(m.config.Bookmarks) // Refresh bookmarks
+			return m, nil
+		}
 		m.mode = ModeNormal
 		return m, nil
 
@@ -462,6 +468,19 @@ func (m *Model) handlePickDirectoryMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, keys.Kill):
 		return m.confirmRemoveFolder()
+
+	case key.Matches(msg, keys.AddBookmark):
+		// Add selected project to bookmarks
+		if selected, ok := m.projectList.SelectedItem(); ok {
+			result, cmd := m.addPathToBookmarks(selected)
+			// Return to bookmarks mode if we came from there
+			if m.returnToBookmarks {
+				m.returnToBookmarks = false
+				m.mode = ModeBookmarks
+				m.bookmarkList.SetItems(m.config.Bookmarks) // Refresh bookmarks
+			}
+			return result, cmd
+		}
 
 	case key.Matches(msg, keys.Quit):
 		return m, tea.Quit
@@ -583,24 +602,24 @@ func (m *Model) handleBookmarksMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.openBookmark(selected)
 		}
 
-	case key.Matches(msg, keys.MoveUp):
+	case key.Matches(msg, keys.PickDirectory):
+		// C-p moves bookmark up in bookmarks mode
 		return m.moveBookmark(-1)
 
-	case key.Matches(msg, keys.MoveDown):
+	case key.Matches(msg, keys.Create):
+		// C-n moves bookmark down in bookmarks mode
 		return m.moveBookmark(1)
 
 	case key.Matches(msg, keys.Kill):
 		return m.removeBookmark()
 
 	case key.Matches(msg, keys.AddBookmark):
-		// Switch to input mode for adding a bookmark
-		m.input.Reset()
-		m.input.SetValue("")
-		m.input.Placeholder = "Enter path (e.g., ~/repos/project)"
-		m.input.Focus()
-		m.message = "Add bookmark path:"
-		m.mode = ModeCreate // Reuse create mode for input
-		return m, nil
+		// Open project picker to add a new bookmark
+		m.mode = ModePickDirectory
+		m.returnToBookmarks = true
+		m.projectList.Reset()
+		m.projectList.SetItems(m.scanProjectDirectories())
+		return m, tea.WindowSize()
 
 	case key.Matches(msg, keys.Quit):
 		return m, tea.Quit
@@ -618,8 +637,33 @@ func (m *Model) handleBookmarksMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// quickAddBookmark adds the currently selected session to bookmarks
-func (m *Model) quickAddBookmark() (tea.Model, tea.Cmd) {
+// addPathToBookmarks adds a path to bookmarks
+func (m *Model) addPathToBookmarks(path string) (tea.Model, tea.Cmd) {
+	// Check if already bookmarked
+	for _, b := range m.config.Bookmarks {
+		if b.Path == path {
+			m.setError("Already bookmarked")
+			return m, nil
+		}
+	}
+
+	// Add bookmark
+	m.config.Bookmarks = append(m.config.Bookmarks, config.Bookmark{
+		Path: path,
+	})
+
+	// Save config
+	if err := m.config.Save(); err != nil {
+		m.setError("Failed to save config: %v", err)
+		return m, nil
+	}
+
+	m.setMessage("Added bookmark: %s", filepath.Base(path))
+	return m, nil
+}
+
+// addSelectedToBookmarks adds the currently selected session to bookmarks
+func (m *Model) addSelectedToBookmarks() (tea.Model, tea.Cmd) {
 	if len(m.items) == 0 || m.cursor >= len(m.items) {
 		return m, nil
 	}
@@ -674,10 +718,7 @@ func (m *Model) quickAddBookmark() (tea.Model, tea.Cmd) {
 
 // openBookmark opens or switches to a bookmarked session
 func (m *Model) openBookmark(bookmark config.Bookmark) (tea.Model, tea.Cmd) {
-	sessionName := bookmark.Name
-	if sessionName == "" {
-		sessionName = filepath.Base(bookmark.Path)
-	}
+	sessionName := filepath.Base(bookmark.Path)
 
 	// Create session if it doesn't exist
 	if !tmux.SessionExists(sessionName) {
@@ -1711,11 +1752,7 @@ func (m Model) viewBookmarks() string {
 			}
 
 			// Format: "1. name (path)" or "1. path" if no name
-			name := bookmark.Name
-			if name == "" {
-				name = filepath.Base(bookmark.Path)
-			}
-
+			name := filepath.Base(bookmark.Path)
 			line := fmt.Sprintf("%d. %s", slot, name)
 			if selected {
 				b.WriteString(ui.FilterStyle.Render(line))

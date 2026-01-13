@@ -15,10 +15,7 @@ type KeyMap struct {
 	CloneRepo     key.Binding
 	Lazygit       key.Binding
 	Bookmarks     key.Binding
-	QuickBookmark key.Binding
 	AddBookmark   key.Binding
-	MoveUp        key.Binding
-	MoveDown      key.Binding
 	Quit          key.Binding
 	Cancel        key.Binding
 	Confirm       key.Binding
@@ -80,21 +77,9 @@ var DefaultKeyMap = KeyMap{
 		key.WithKeys("ctrl+b"),
 		key.WithHelp("C-b", "bookmarks"),
 	),
-	QuickBookmark: key.NewBinding(
-		key.WithKeys("ctrl+B"),
-		key.WithHelp("C-B", "add bookmark"),
-	),
 	AddBookmark: key.NewBinding(
 		key.WithKeys("ctrl+a"),
-		key.WithHelp("C-a", "add"),
-	),
-	MoveUp: key.NewBinding(
-		key.WithKeys("ctrl+u"),
-		key.WithHelp("C-u", "move up"),
-	),
-	MoveDown: key.NewBinding(
-		key.WithKeys("ctrl+d"),
-		key.WithHelp("C-d", "move down"),
+		key.WithHelp("C-a", "add bookmark"),
 	),
 	Quit: key.NewBinding(
 		key.WithKeys("ctrl+c"),
@@ -198,7 +183,7 @@ func HelpCloneSuccess() string {
 func HelpBookmarks() string {
 	return helpItem("↑↓", "nav") + helpSep() +
 		helpItem("enter", "open") + helpSep() +
-		helpItem("C-u/d", "move") + helpSep() +
+		helpItem("C-p/n", "move") + helpSep() +
 		helpItem("C-a", "add") + helpSep() +
 		helpItem("C-x", "remove") + helpSep() +
 		helpItem("esc", "back")
