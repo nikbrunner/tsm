@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -116,7 +117,7 @@ func New(currentSession string, cfg config.Config) Model {
 			strings.Contains(strings.ToLower(b.Path), filter)
 	})
 
-	return Model{
+	m := Model{
 		currentSession:   currentSession,
 		input:            ti,
 		config:           cfg,
@@ -125,6 +126,15 @@ func New(currentSession string, cfg config.Config) Model {
 		bookmarkList:     bookmarkList,
 		bookmarkExpanded: make(map[string]bool),
 	}
+
+	// Load cached sessions for instant startup
+	if cached := m.loadSessionCache(); cached != nil {
+		m.sessions = cached
+		m.sessionsLoaded = true
+		m.rebuildItems()
+	}
+
+	return m
 }
 
 // Init implements tea.Model
@@ -187,6 +197,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sessionsMsg:
 		m.sessions = msg.sessions
 		m.sessionsLoaded = true
+		m.saveSessionCache() // Cache for instant startup next time
 		m.loadClaudeStatuses()
 		m.loadGitStatuses()
 		m.calculateColumnWidths()
@@ -2049,4 +2060,61 @@ func (m Model) viewSessionList() string {
 	}
 
 	return ui.AppStyle.Render(b.String())
+}
+
+// sessionCachePath returns the path to the session cache file
+func (m *Model) sessionCachePath() string {
+	return filepath.Join(m.config.CacheDir, "sessions.json")
+}
+
+// cachedSession is a simplified session for caching (excludes UI state)
+type cachedSession struct {
+	Name         string    `json:"name"`
+	LastActivity time.Time `json:"last_activity"`
+}
+
+// loadSessionCache loads cached sessions from disk
+// Returns nil if cache doesn't exist or is invalid
+func (m *Model) loadSessionCache() []tmux.Session {
+	data, err := os.ReadFile(m.sessionCachePath())
+	if err != nil {
+		return nil
+	}
+
+	var cached []cachedSession
+	if err := json.Unmarshal(data, &cached); err != nil {
+		return nil
+	}
+
+	sessions := make([]tmux.Session, len(cached))
+	for i, c := range cached {
+		sessions[i] = tmux.Session{
+			Name:         c.Name,
+			LastActivity: c.LastActivity,
+		}
+	}
+	return sessions
+}
+
+// saveSessionCache saves sessions to disk for instant startup
+func (m *Model) saveSessionCache() {
+	cached := make([]cachedSession, len(m.sessions))
+	for i, s := range m.sessions {
+		cached[i] = cachedSession{
+			Name:         s.Name,
+			LastActivity: s.LastActivity,
+		}
+	}
+
+	data, err := json.Marshal(cached)
+	if err != nil {
+		return
+	}
+
+	// Ensure cache directory exists
+	if err := os.MkdirAll(m.config.CacheDir, 0755); err != nil {
+		return
+	}
+
+	_ = os.WriteFile(m.sessionCachePath(), data, 0644)
 }
