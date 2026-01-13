@@ -114,70 +114,15 @@ The hook (`hooks/helm-hook.sh`) writes status files to `~/.cache/helm/<session>.
 
 ---
 
-## Issue Tracking (Beads)
+## Project Tracking
 
-This repo uses [beads](https://github.com/steveyegge/beads) for git-backed issue tracking. Issues are stored in `.beads/`.
+Issues are tracked in [Linear](https://linear.app/black-atom-industries) under the Development team with the `helm` label.
 
-### Essential Commands
+Use the Linear MCP to query and manage issues directly from Claude Code:
+- `mcp__linear__list_issues` - Query issues
+- `mcp__linear__create_issue` - Create new issues
+- `mcp__linear__update_issue` - Update status, labels, etc.
 
-```bash
-bd ready              # Show issues ready to work (no blockers)
-bd list --status=open # All open issues
-bd show <id>          # Full issue details with dependencies
-bd create --title="..." --type=task --priority=2
-bd update <id> --status=in_progress
-bd close <id>         # Mark complete
-bd sync               # Sync with remote
-```
+---
 
-### Workflow
-
-1. **Start**: Run `bd ready` to find actionable work
-2. **Claim**: Use `bd update <id> --status=in_progress`
-3. **Work**: Implement the task
-4. **Complete**: Use `bd close <id>`
-5. **Sync**: Always run `bd sync` at session end
-
-### Key Concepts
-
-- **Priority**: P0=critical, P1=high, P2=medium, P3=low, P4=backlog (use numbers, not words)
-- **Types**: task, bug, feature, epic, question, docs
-- **Dependencies**: `bd dep add <issue> <depends-on>` - `bd ready` shows only unblocked work
-
-### Session Close Protocol
-
-**Work is NOT complete until `git push` succeeds.**
-
-```bash
-git status              # Check what changed
-git add <files>         # Stage code changes
-bd sync                 # Commit beads changes
-git commit -m "..."     # Commit code (include .beads/ in same commit)
-git push                # Push to remote
-```
-
-## Landing the Plane (Session Completion)
-
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
-
-**MANDATORY WORKFLOW:**
-
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   bd sync
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
-
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
+> **Note to Claude:** This file is named `AGENTS.md` with a symlink `CLAUDE.md -> AGENTS.md` because Anthropic's Claude Code does not yet support `AGENTS.md` as a context file. Once Claude Code supports `AGENTS.md` natively, the symlink can be removed.

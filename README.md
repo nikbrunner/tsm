@@ -114,6 +114,10 @@ Sessions show Claude status as a single animated character:
 - `?` - Claude waiting for input
 - `!` - Claude waiting for input > 5 minutes (needs attention)
 
+## Project Tracking
+
+Issues and roadmap are tracked in [Linear](https://linear.app/black-atom-industries) under the Development team with the `helm` label.
+
 ## License
 
 MIT
