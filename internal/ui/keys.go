@@ -14,6 +14,11 @@ type KeyMap struct {
 	PickDirectory key.Binding
 	CloneRepo     key.Binding
 	Lazygit       key.Binding
+	Bookmarks     key.Binding
+	QuickBookmark key.Binding
+	AddBookmark   key.Binding
+	MoveUp        key.Binding
+	MoveDown      key.Binding
 	Quit          key.Binding
 	Cancel        key.Binding
 	Confirm       key.Binding
@@ -64,12 +69,32 @@ var DefaultKeyMap = KeyMap{
 		key.WithHelp("C-p", "projects"),
 	),
 	CloneRepo: key.NewBinding(
-		key.WithKeys("ctrl+a"),
-		key.WithHelp("C-a", "add repo"),
+		key.WithKeys("ctrl+r"),
+		key.WithHelp("C-r", "clone repo"),
 	),
 	Lazygit: key.NewBinding(
 		key.WithKeys("ctrl+g"),
 		key.WithHelp("C-g", "lazygit"),
+	),
+	Bookmarks: key.NewBinding(
+		key.WithKeys("ctrl+b"),
+		key.WithHelp("C-b", "bookmarks"),
+	),
+	QuickBookmark: key.NewBinding(
+		key.WithKeys("ctrl+B"),
+		key.WithHelp("C-B", "add bookmark"),
+	),
+	AddBookmark: key.NewBinding(
+		key.WithKeys("ctrl+a"),
+		key.WithHelp("C-a", "add"),
+	),
+	MoveUp: key.NewBinding(
+		key.WithKeys("ctrl+u"),
+		key.WithHelp("C-u", "move up"),
+	),
+	MoveDown: key.NewBinding(
+		key.WithKeys("ctrl+d"),
+		key.WithHelp("C-d", "move down"),
 	),
 	Quit: key.NewBinding(
 		key.WithKeys("ctrl+c"),
@@ -112,7 +137,8 @@ func HelpNormal() string {
 		helpItem("C-x", "kill")
 	line2 := helpItem("C-n", "new") + helpSep() +
 		helpItem("C-p", "projects") + helpSep() +
-		helpItem("C-a", "add repo") + helpSep() +
+		helpItem("C-b", "bookmarks") + helpSep() +
+		helpItem("C-r", "clone") + helpSep() +
 		helpItem("C-g", "lazygit")
 	return line1 + "\n" + line2
 }
@@ -166,4 +192,14 @@ func HelpCloneRepoLoading() string {
 func HelpCloneSuccess() string {
 	return helpItem("enter", "switch to session") + helpSep() +
 		helpItem("esc", "back to sessions")
+}
+
+// HelpBookmarks returns the help text for bookmarks mode
+func HelpBookmarks() string {
+	return helpItem("↑↓", "nav") + helpSep() +
+		helpItem("enter", "open") + helpSep() +
+		helpItem("C-u/d", "move") + helpSep() +
+		helpItem("C-a", "add") + helpSep() +
+		helpItem("C-x", "remove") + helpSep() +
+		helpItem("esc", "back")
 }

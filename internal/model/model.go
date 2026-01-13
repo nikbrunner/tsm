@@ -31,6 +31,7 @@ const (
 	ModePickDirectory
 	ModeConfirmRemoveFolder
 	ModeCloneRepo
+	ModeBookmarks
 )
 
 // Item represents either a session or a window in the flattened list
@@ -82,6 +83,9 @@ type Model struct {
 	cloneSuccess        bool   // True when clone completed, awaiting confirmation
 	cloneSuccessPath    string // Path of cloned repo (for layout)
 	cloneSuccessSession string // Session name to switch to
+
+	// Bookmarks mode state (uses ScrollList for cursor/scroll/filter)
+	bookmarkList *ui.ScrollList[config.Bookmark]
 }
 
 // New creates a new Model
@@ -100,12 +104,23 @@ func New(currentSession string, cfg config.Config) Model {
 		return strings.Contains(strings.ToLower(repo), filter)
 	})
 
+	// Create bookmark list with filter function that matches on name or path
+	bookmarkList := ui.NewScrollList(func(b config.Bookmark, filter string) bool {
+		name := b.Name
+		if name == "" {
+			name = filepath.Base(b.Path)
+		}
+		return strings.Contains(strings.ToLower(name), filter) ||
+			strings.Contains(strings.ToLower(b.Path), filter)
+	})
+
 	return Model{
 		currentSession: currentSession,
 		input:          ti,
 		config:         cfg,
 		projectList:    projectList,
 		cloneList:      cloneList,
+		bookmarkList:   bookmarkList,
 	}
 }
 
@@ -245,6 +260,8 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleConfirmRemoveFolderMode(msg)
 	case ModeCloneRepo:
 		return m.handleCloneRepoMode(msg)
+	case ModeBookmarks:
+		return m.handleBookmarksMode(msg)
 	}
 	return m, nil
 }
@@ -325,6 +342,16 @@ func (m *Model) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, keys.Lazygit):
 		return m.openLazygit()
+
+	case key.Matches(msg, keys.Bookmarks):
+		m.mode = ModeBookmarks
+		m.filter = "" // Clear any active filter
+		m.bookmarkList.Reset()
+		m.bookmarkList.SetItems(m.config.Bookmarks)
+		return m, tea.WindowSize()
+
+	case key.Matches(msg, keys.QuickBookmark):
+		return m.quickAddBookmark()
 
 	// Number jumps (only when no filter active)
 	case m.filter == "" && key.Matches(msg, keys.Jump1):
@@ -528,6 +555,202 @@ func (m *Model) handleCloneRepoMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	return m, nil
+}
+
+func (m *Model) handleBookmarksMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keys := ui.DefaultKeyMap
+
+	switch {
+	case key.Matches(msg, keys.Cancel):
+		// If filter is active, clear it first
+		if m.bookmarkList.Filter() != "" {
+			m.bookmarkList.SetFilter("")
+			return m, nil
+		}
+		// Otherwise return to normal mode
+		m.mode = ModeNormal
+		return m, nil
+
+	case key.Matches(msg, keys.Up):
+		m.bookmarkList.MoveCursor(-1)
+
+	case key.Matches(msg, keys.Down):
+		m.bookmarkList.MoveCursor(1)
+
+	case key.Matches(msg, keys.Select):
+		if selected, ok := m.bookmarkList.SelectedItem(); ok {
+			return m.openBookmark(selected)
+		}
+
+	case key.Matches(msg, keys.MoveUp):
+		return m.moveBookmark(-1)
+
+	case key.Matches(msg, keys.MoveDown):
+		return m.moveBookmark(1)
+
+	case key.Matches(msg, keys.Kill):
+		return m.removeBookmark()
+
+	case key.Matches(msg, keys.AddBookmark):
+		// Switch to input mode for adding a bookmark
+		m.input.Reset()
+		m.input.SetValue("")
+		m.input.Placeholder = "Enter path (e.g., ~/repos/project)"
+		m.input.Focus()
+		m.message = "Add bookmark path:"
+		m.mode = ModeCreate // Reuse create mode for input
+		return m, nil
+
+	case key.Matches(msg, keys.Quit):
+		return m, tea.Quit
+
+	case msg.Type == tea.KeyBackspace:
+		filter := m.bookmarkList.Filter()
+		if len(filter) > 0 {
+			m.bookmarkList.SetFilter(filter[:len(filter)-1])
+		}
+
+	case msg.Type == tea.KeyRunes:
+		m.bookmarkList.SetFilter(m.bookmarkList.Filter() + string(msg.Runes))
+	}
+
+	return m, nil
+}
+
+// quickAddBookmark adds the currently selected session to bookmarks
+func (m *Model) quickAddBookmark() (tea.Model, tea.Cmd) {
+	if len(m.items) == 0 || m.cursor >= len(m.items) {
+		return m, nil
+	}
+
+	item := m.items[m.cursor]
+	if !item.IsSession {
+		m.setError("Select a session to bookmark")
+		return m, nil
+	}
+
+	session := m.sessions[item.SessionIndex]
+	// Get session path from tmux
+	path, err := git.GetSessionPath(session.Name)
+	if err != nil || path == "" {
+		// Fallback: assume it's in one of the project dirs
+		for _, dir := range m.config.ProjectDirs {
+			possiblePath := filepath.Join(dir, session.Name)
+			if _, err := os.Stat(possiblePath); err == nil {
+				path = possiblePath
+				break
+			}
+		}
+	}
+
+	if path == "" {
+		m.setError("Could not determine path for session")
+		return m, nil
+	}
+
+	// Check if already bookmarked
+	for _, b := range m.config.Bookmarks {
+		if b.Path == path || filepath.Base(b.Path) == session.Name {
+			m.setError("Session already bookmarked")
+			return m, nil
+		}
+	}
+
+	// Add bookmark
+	m.config.Bookmarks = append(m.config.Bookmarks, config.Bookmark{
+		Path: path,
+	})
+
+	// Save config
+	if err := m.config.Save(); err != nil {
+		m.setError("Failed to save config: %v", err)
+		return m, nil
+	}
+
+	m.setMessage("Added bookmark: %s", session.Name)
+	return m, nil
+}
+
+// openBookmark opens or switches to a bookmarked session
+func (m *Model) openBookmark(bookmark config.Bookmark) (tea.Model, tea.Cmd) {
+	sessionName := bookmark.Name
+	if sessionName == "" {
+		sessionName = filepath.Base(bookmark.Path)
+	}
+
+	// Create session if it doesn't exist
+	if !tmux.SessionExists(sessionName) {
+		if err := tmux.CreateSession(sessionName, bookmark.Path); err != nil {
+			m.setError("Failed to create session: %v", err)
+			return m, nil
+		}
+
+		// Apply layout if configured
+		if m.config.Layout != "" && m.config.LayoutDir != "" {
+			layoutPath := filepath.Join(m.config.LayoutDir, m.config.Layout+".sh")
+			if _, err := os.Stat(layoutPath); err == nil {
+				cmd := exec.Command(layoutPath, sessionName)
+				cmd.Dir = bookmark.Path
+				_ = cmd.Run()
+			}
+		}
+	}
+
+	// Switch to the session
+	if err := tmux.SwitchClient(sessionName); err != nil {
+		m.setError("Failed to switch to session: %v", err)
+		return m, nil
+	}
+
+	return m, tea.Quit
+}
+
+// moveBookmark moves the selected bookmark up or down
+func (m *Model) moveBookmark(delta int) (tea.Model, tea.Cmd) {
+	cursor := m.bookmarkList.Cursor()
+	newPos := cursor + delta
+
+	if newPos < 0 || newPos >= len(m.config.Bookmarks) {
+		return m, nil
+	}
+
+	// Swap bookmarks
+	m.config.Bookmarks[cursor], m.config.Bookmarks[newPos] = m.config.Bookmarks[newPos], m.config.Bookmarks[cursor]
+
+	// Save config
+	if err := m.config.Save(); err != nil {
+		m.setError("Failed to save config: %v", err)
+		return m, nil
+	}
+
+	// Update list and cursor
+	m.bookmarkList.SetItems(m.config.Bookmarks)
+	m.bookmarkList.SetCursor(newPos)
+
+	return m, nil
+}
+
+// removeBookmark removes the selected bookmark
+func (m *Model) removeBookmark() (tea.Model, tea.Cmd) {
+	cursor := m.bookmarkList.Cursor()
+	if cursor < 0 || cursor >= len(m.config.Bookmarks) {
+		return m, nil
+	}
+
+	// Remove bookmark
+	m.config.Bookmarks = append(m.config.Bookmarks[:cursor], m.config.Bookmarks[cursor+1:]...)
+
+	// Save config
+	if err := m.config.Save(); err != nil {
+		m.setError("Failed to save config: %v", err)
+		return m, nil
+	}
+
+	// Update list
+	m.bookmarkList.SetItems(m.config.Bookmarks)
+
+	m.setMessage("Bookmark removed")
 	return m, nil
 }
 
@@ -1144,6 +1367,12 @@ func (m *Model) setError(format string, args ...any) {
 	m.messageIsError = true
 }
 
+// setMessage sets a non-error message on the model
+func (m *Model) setMessage(format string, args ...any) {
+	m.message = fmt.Sprintf(format, args...)
+	m.messageIsError = false
+}
+
 // sanitizeSessionName converts a path to a valid tmux session name
 // Dots and colons have special meaning in tmux target syntax (window.pane, session:window)
 // Spaces cause issues with shell commands
@@ -1164,6 +1393,9 @@ func (m Model) View() string {
 	}
 	if m.mode == ModeCloneRepo {
 		return m.viewCloneRepo()
+	}
+	if m.mode == ModeBookmarks {
+		return m.viewBookmarks()
 	}
 	return m.viewSessionList()
 }
@@ -1414,6 +1646,116 @@ func (m Model) viewCloneRepo() string {
 		b.WriteString(ui.FooterStyle.Render(ui.HelpFiltering()))
 	} else {
 		b.WriteString(ui.FooterStyle.Render(ui.HelpCloneRepo()))
+	}
+
+	return ui.AppStyle.Render(b.String())
+}
+
+// viewBookmarks renders the bookmarks picker view
+func (m Model) viewBookmarks() string {
+	var b strings.Builder
+	usedLines := 0
+
+	// Header
+	filter := m.bookmarkList.Filter()
+	if filter != "" {
+		b.WriteString(ui.HeaderStyle.Render("Bookmarks"))
+		b.WriteString("  ")
+		b.WriteString(ui.FilterStyle.Render(filter))
+	} else {
+		b.WriteString(ui.HeaderStyle.Render("Bookmarks"))
+	}
+	b.WriteString("\n")
+	usedLines++
+
+	b.WriteString(ui.RenderBorder(m.borderWidth()))
+	b.WriteString("\n")
+	usedLines++
+
+	// Content area
+	contentLines := 0
+
+	if m.bookmarkList.Len() == 0 {
+		if filter != "" {
+			b.WriteString("  No bookmarks matching filter\n")
+		} else {
+			b.WriteString("  No bookmarks configured\n")
+			b.WriteString("  Press C-a to add a bookmark\n")
+			contentLines++
+		}
+		contentLines++
+	} else {
+		// Calculate max visible items
+		contentH := m.contentHeight()
+		maxItems := 10 // fallback
+		if contentH > 0 {
+			if available := contentH - 5; available > 0 {
+				maxItems = available
+			}
+		}
+		m.bookmarkList.SetHeight(maxItems)
+
+		visibleBookmarks := m.bookmarkList.VisibleItems()
+		scrollOffset := m.bookmarkList.ScrollOffset()
+
+		scrollbar := ui.ScrollbarChars(m.bookmarkList.Len(), m.bookmarkList.Height(), scrollOffset, len(visibleBookmarks))
+
+		for i, bookmark := range visibleBookmarks {
+			absoluteIdx := scrollOffset + i
+			selected := m.bookmarkList.IsSelected(absoluteIdx)
+			slot := absoluteIdx + 1
+
+			if i < len(scrollbar) {
+				b.WriteString(scrollbar[i])
+				b.WriteString(" ")
+			}
+
+			// Format: "1. name (path)" or "1. path" if no name
+			name := bookmark.Name
+			if name == "" {
+				name = filepath.Base(bookmark.Path)
+			}
+
+			line := fmt.Sprintf("%d. %s", slot, name)
+			if selected {
+				b.WriteString(ui.FilterStyle.Render(line))
+			} else {
+				b.WriteString(line)
+			}
+			b.WriteString("\n")
+			contentLines++
+		}
+	}
+	usedLines += contentLines
+
+	// Padding to push footer to bottom
+	footerLines := 3
+	contentH := m.contentHeight()
+	if contentH > 0 {
+		padding := contentH - usedLines - footerLines
+		for i := 0; i < padding; i++ {
+			b.WriteString("\n")
+		}
+	}
+
+	b.WriteString(ui.RenderBorder(m.borderWidth()))
+	b.WriteString("\n")
+
+	// Statusline
+	var statusline string
+	if filter != "" {
+		statusline = fmt.Sprintf("%d/%d bookmarks", m.bookmarkList.Len(), len(m.bookmarkList.Items()))
+	} else {
+		statusline = fmt.Sprintf("%d bookmarks (M-1 to M-%d)", len(m.config.Bookmarks), min(len(m.config.Bookmarks), 9))
+	}
+	b.WriteString(ui.StatuslineStyle.Render(statusline))
+	b.WriteString("\n")
+
+	// Help line
+	if filter != "" {
+		b.WriteString(ui.FooterStyle.Render(ui.HelpFiltering()))
+	} else {
+		b.WriteString(ui.FooterStyle.Render(ui.HelpBookmarks()))
 	}
 
 	return ui.AppStyle.Render(b.String())

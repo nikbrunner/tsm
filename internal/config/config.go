@@ -36,12 +36,21 @@ type Config struct {
 
 	// Lazygit popup dimensions
 	LazygitPopup PopupConfig `yaml:"lazygit_popup"`
+
+	// Quick-access session bookmarks (slots 1-9, maps to M-1 through M-9)
+	Bookmarks []Bookmark `yaml:"bookmarks,omitempty"`
 }
 
 // PopupConfig holds popup dimension settings
 type PopupConfig struct {
 	Width  string `yaml:"width"`
 	Height string `yaml:"height"`
+}
+
+// Bookmark represents a quick-access session bookmark
+type Bookmark struct {
+	Name string `yaml:"name,omitempty"` // Optional, derived from path if empty
+	Path string `yaml:"path"`
 }
 
 // DefaultConfig returns configuration with sensible defaults
@@ -94,6 +103,11 @@ func Load() (Config, error) {
 	// Expand ~ in project directories
 	for i, d := range cfg.ProjectDirs {
 		cfg.ProjectDirs[i] = expandPath(d)
+	}
+
+	// Expand ~ in bookmark paths
+	for i := range cfg.Bookmarks {
+		cfg.Bookmarks[i].Path = expandPath(cfg.Bookmarks[i].Path)
 	}
 
 	// Ensure ProjectDepth is at least 1
@@ -172,12 +186,31 @@ func Init() error {
 # lazygit_popup:
 #   width: 90%
 #   height: 90%
+
+# Quick-access session bookmarks (slots 1-9, maps to M-1 through M-9)
+# Use 'tsm tmux-bindings' to generate tmux keybindings
+# bookmarks:
+#   - path: ~/repos/my-project
+#   - name: notes
+#     path: ~/repos/notes
 `
 
 	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
+	return nil
+}
+
+// Save writes the configuration back to the config file
+func (cfg *Config) Save() error {
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+	if err := os.WriteFile(Path(), data, 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
 	return nil
 }
 
