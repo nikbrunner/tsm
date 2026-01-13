@@ -115,10 +115,12 @@ func runBookmark(slotStr string) error {
 		if cfg.Layout != "" && cfg.LayoutDir != "" {
 			layoutPath := filepath.Join(cfg.LayoutDir, cfg.Layout+".sh")
 			if _, err := os.Stat(layoutPath); err == nil {
-				// Run layout script with session name as argument
-				cmd := exec.Command(layoutPath, sessionName)
-				cmd.Dir = bookmark.Path
-				_ = cmd.Run() // Ignore layout errors
+				cmd := exec.Command(layoutPath, sessionName, bookmark.Path)
+				cmd.Env = append(os.Environ(),
+					"TMUX_SESSION="+sessionName,
+					"TMUX_WORKING_DIR="+bookmark.Path,
+				)
+				_ = cmd.Run()
 			}
 		}
 	}
