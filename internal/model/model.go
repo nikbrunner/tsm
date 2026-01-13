@@ -722,7 +722,7 @@ func (m *Model) addSelectedToBookmarks() (tea.Model, tea.Cmd) {
 
 // openBookmark opens or switches to a bookmarked session
 func (m *Model) openBookmark(bookmark config.Bookmark) (tea.Model, tea.Cmd) {
-	sessionName := filepath.Base(bookmark.Path)
+	sessionName := m.extractSessionName(bookmark.Path)
 
 	// Create session if it doesn't exist
 	if !tmux.SessionExists(sessionName) {
@@ -1751,8 +1751,8 @@ func (m Model) viewBookmarks() string {
 				b.WriteString(" ")
 			}
 
-			// Format: "1. name (path)" or "1. path" if no name
-			name := filepath.Base(bookmark.Path)
+			// Format: "1. owner/repo"
+			name := m.extractDisplayPath(bookmark.Path)
 			line := fmt.Sprintf("%d. %s", slot, name)
 			if selected {
 				b.WriteString(ui.FilterStyle.Render(line))

@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -103,7 +104,7 @@ func runBookmark(slotStr string) error {
 	}
 
 	bookmark := cfg.Bookmarks[idx]
-	sessionName := filepath.Base(bookmark.Path)
+	sessionName := extractSessionName(bookmark.Path, cfg.ProjectDepth)
 
 	// Create session if it doesn't exist
 	if !tmux.SessionExists(sessionName) {
@@ -144,4 +145,26 @@ func printTmuxBindings() error {
 	}
 
 	return nil
+}
+
+// extractSessionName extracts a session name from a full path
+// Uses the last N path components based on depth and sanitizes for tmux
+func extractSessionName(fullPath string, depth int) string {
+	parts := strings.Split(fullPath, string(filepath.Separator))
+	if depth > len(parts) {
+		depth = len(parts)
+	}
+	relPath := strings.Join(parts[len(parts)-depth:], "/")
+	return sanitizeSessionName(relPath)
+}
+
+// sanitizeSessionName converts a path to a valid tmux session name
+func sanitizeSessionName(name string) string {
+	replacer := strings.NewReplacer(
+		"/", "-",
+		".", "-",
+		":", "-",
+		" ", "-",
+	)
+	return replacer.Replace(name)
 }
