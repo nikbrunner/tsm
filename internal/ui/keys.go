@@ -123,6 +123,7 @@ func HelpNormal() string {
 	line2 := helpItem("C-n", "new") + helpSep() +
 		helpItem("C-p", "projects") + helpSep() +
 		helpItem("C-b", "bookmarks") + helpSep() +
+		helpItem("C-a", "bookmark") + helpSep() +
 		helpItem("C-r", "clone") + helpSep() +
 		helpItem("C-g", "lazygit")
 	return line1 + "\n" + line2
@@ -151,6 +152,7 @@ func HelpCreate() string {
 func HelpPickDirectory() string {
 	return helpItem("↑↓", "nav") + helpSep() +
 		helpItem("enter", "select") + helpSep() +
+		helpItem("C-a", "bookmark") + helpSep() +
 		helpItem("C-x", "remove") + helpSep() +
 		helpItem("esc", "back")
 }
