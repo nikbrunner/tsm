@@ -77,6 +77,17 @@ func Path() string {
 	return filepath.Join(home, ".config", "tsm", "config.yml")
 }
 
+// BookmarksPath returns the path to the separate bookmarks file
+func BookmarksPath() string {
+	home := os.Getenv("HOME")
+	return filepath.Join(home, ".config", "tsm", "bookmarks.yml")
+}
+
+// BookmarksFile represents the structure of the bookmarks file
+type BookmarksFile struct {
+	Bookmarks []Bookmark `yaml:"bookmarks"`
+}
+
 // Load reads configuration from file and environment variables.
 // Priority: env vars > config file > defaults
 func Load() (Config, error) {
@@ -128,7 +139,38 @@ func Load() (Config, error) {
 		cfg.GitStatusEnabled = true
 	}
 
+	// Load bookmarks from separate file (takes priority over config.yml bookmarks)
+	if bookmarks, err := LoadBookmarks(); err == nil {
+		cfg.Bookmarks = bookmarks
+	}
+	// If no separate bookmarks file exists, keep bookmarks from config.yml (for migration)
+
 	return cfg, nil
+}
+
+// LoadBookmarks reads bookmarks from the separate bookmarks file
+func LoadBookmarks() ([]Bookmark, error) {
+	bookmarksPath := BookmarksPath()
+	if _, err := os.Stat(bookmarksPath); os.IsNotExist(err) {
+		return nil, err
+	}
+
+	data, err := os.ReadFile(bookmarksPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read bookmarks file: %w", err)
+	}
+
+	var bf BookmarksFile
+	if err := yaml.Unmarshal(data, &bf); err != nil {
+		return nil, fmt.Errorf("failed to parse bookmarks file: %w", err)
+	}
+
+	// Expand ~ in bookmark paths
+	for i := range bf.Bookmarks {
+		bf.Bookmarks[i].Path = expandPath(bf.Bookmarks[i].Path)
+	}
+
+	return bf.Bookmarks, nil
 }
 
 // Init creates a new config file with commented defaults
@@ -188,9 +230,8 @@ func Init() error {
 
 # Quick-access session bookmarks (slots 1-9, maps to M-1 through M-9)
 # Use 'tsm tmux-bindings' to generate tmux keybindings
-# bookmarks:
-#   - path: ~/repos/my-project
-#   - path: ~/repos/another-project
+# Note: Bookmarks are stored separately in ~/.config/tsm/bookmarks.yml
+# to preserve comments in this file when bookmarks are modified via the TUI.
 `
 
 	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
@@ -200,14 +241,23 @@ func Init() error {
 	return nil
 }
 
-// Save writes the configuration back to the config file
-func (cfg *Config) Save() error {
-	data, err := yaml.Marshal(cfg)
+// SaveBookmarks writes bookmarks to the separate bookmarks file
+// This preserves comments in the main config.yml
+func (cfg *Config) SaveBookmarks() error {
+	bf := BookmarksFile{Bookmarks: cfg.Bookmarks}
+	data, err := yaml.Marshal(bf)
 	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
+		return fmt.Errorf("failed to marshal bookmarks: %w", err)
 	}
-	if err := os.WriteFile(Path(), data, 0644); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
+
+	// Ensure config directory exists
+	bookmarksPath := BookmarksPath()
+	if err := os.MkdirAll(filepath.Dir(bookmarksPath), 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	if err := os.WriteFile(bookmarksPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write bookmarks file: %w", err)
 	}
 	return nil
 }

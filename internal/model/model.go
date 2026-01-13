@@ -674,7 +674,7 @@ func (m *Model) addPathToBookmarks(path string) (tea.Model, tea.Cmd) {
 	})
 
 	// Save config
-	if err := m.config.Save(); err != nil {
+	if err := m.config.SaveBookmarks(); err != nil {
 		m.setError("Failed to save config: %v", err)
 		return m, nil
 	}
@@ -728,7 +728,7 @@ func (m *Model) addSelectedToBookmarks() (tea.Model, tea.Cmd) {
 	})
 
 	// Save config
-	if err := m.config.Save(); err != nil {
+	if err := m.config.SaveBookmarks(); err != nil {
 		m.setError("Failed to save config: %v", err)
 		return m, nil
 	}
@@ -774,7 +774,7 @@ func (m *Model) moveBookmark(delta int) (tea.Model, tea.Cmd) {
 	m.config.Bookmarks[cursor], m.config.Bookmarks[newPos] = m.config.Bookmarks[newPos], m.config.Bookmarks[cursor]
 
 	// Save config
-	if err := m.config.Save(); err != nil {
+	if err := m.config.SaveBookmarks(); err != nil {
 		m.setError("Failed to save config: %v", err)
 		return m, nil
 	}
@@ -797,7 +797,7 @@ func (m *Model) removeBookmark() (tea.Model, tea.Cmd) {
 	m.config.Bookmarks = append(m.config.Bookmarks[:cursor], m.config.Bookmarks[cursor+1:]...)
 
 	// Save config
-	if err := m.config.Save(); err != nil {
+	if err := m.config.SaveBookmarks(); err != nil {
 		m.setError("Failed to save config: %v", err)
 		return m, nil
 	}

@@ -77,3 +77,112 @@ func TestPath(t *testing.T) {
 		t.Errorf("Path() = %q, want %q", result, expected)
 	}
 }
+
+func TestBookmarksPath(t *testing.T) {
+	home := os.Getenv("HOME")
+	expected := filepath.Join(home, ".config", "tsm", "bookmarks.yml")
+
+	result := BookmarksPath()
+	if result != expected {
+		t.Errorf("BookmarksPath() = %q, want %q", result, expected)
+	}
+}
+
+func TestSaveAndLoadBookmarks(t *testing.T) {
+	// Create a temp directory for the test
+	tmpDir, err := os.MkdirTemp("", "tsm-config-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tmpDir) })
+
+	// Override HOME for this test
+	t.Setenv("HOME", tmpDir)
+
+	// Create config directory
+	configDir := filepath.Join(tmpDir, ".config", "tsm")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a config with bookmarks
+	cfg := DefaultConfig()
+	cfg.Bookmarks = []Bookmark{
+		{Path: "/path/to/project1"},
+		{Path: "/path/to/project2"},
+	}
+
+	// Save bookmarks
+	if err := cfg.SaveBookmarks(); err != nil {
+		t.Fatalf("SaveBookmarks() error: %v", err)
+	}
+
+	// Verify bookmarks file was created
+	bookmarksPath := BookmarksPath()
+	if _, err := os.Stat(bookmarksPath); os.IsNotExist(err) {
+		t.Fatal("bookmarks.yml was not created")
+	}
+
+	// Load bookmarks from the file
+	loadedBookmarks, err := LoadBookmarks()
+	if err != nil {
+		t.Fatalf("LoadBookmarks() error: %v", err)
+	}
+
+	if len(loadedBookmarks) != 2 {
+		t.Errorf("LoadBookmarks() returned %d bookmarks, want 2", len(loadedBookmarks))
+	}
+
+	if loadedBookmarks[0].Path != "/path/to/project1" {
+		t.Errorf("First bookmark path = %q, want %q", loadedBookmarks[0].Path, "/path/to/project1")
+	}
+}
+
+func TestBookmarksFileTakesPriorityOverConfig(t *testing.T) {
+	// Create a temp directory for the test
+	tmpDir, err := os.MkdirTemp("", "tsm-config-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tmpDir) })
+
+	// Override HOME for this test
+	t.Setenv("HOME", tmpDir)
+
+	// Create config directory
+	configDir := filepath.Join(tmpDir, ".config", "tsm")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create config.yml with one bookmark
+	configContent := `layout: test
+bookmarks:
+  - path: /from/config
+`
+	if err := os.WriteFile(Path(), []byte(configContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create bookmarks.yml with a different bookmark
+	bookmarksContent := `bookmarks:
+  - path: /from/bookmarks
+`
+	if err := os.WriteFile(BookmarksPath(), []byte(bookmarksContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Load config - should get bookmarks from bookmarks.yml, not config.yml
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if len(cfg.Bookmarks) != 1 {
+		t.Fatalf("Expected 1 bookmark, got %d", len(cfg.Bookmarks))
+	}
+
+	if cfg.Bookmarks[0].Path != "/from/bookmarks" {
+		t.Errorf("Bookmark path = %q, want %q (bookmarks.yml should take priority)", cfg.Bookmarks[0].Path, "/from/bookmarks")
+	}
+}
