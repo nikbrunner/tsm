@@ -131,6 +131,11 @@ func New(currentSession string, cfg config.Config) Model {
 	if cached := m.loadSessionCache(); cached != nil {
 		m.sessions = cached
 		m.sessionsLoaded = true
+		m.calculateColumnWidths()
+		// Reserve git status column to prevent layout shift when statuses load
+		if cfg.GitStatusEnabled {
+			m.maxGitStatusWidth = ui.GitStatusColumnWidth
+		}
 		m.rebuildItems()
 	}
 
@@ -1283,10 +1288,12 @@ func (m *Model) loadClaudeStatuses() {
 
 func (m *Model) loadGitStatuses() {
 	m.gitStatuses = make(map[string]git.Status)
-	m.maxGitStatusWidth = 0
 	if !m.config.GitStatusEnabled {
+		m.maxGitStatusWidth = 0
 		return
 	}
+	// Always reserve column width when git status is enabled (prevents layout shift)
+	m.maxGitStatusWidth = ui.GitStatusColumnWidth
 	for _, s := range m.sessions {
 		path, err := git.GetSessionPath(s.Name)
 		if err != nil || path == "" {
@@ -1296,10 +1303,6 @@ func (m *Model) loadGitStatuses() {
 		if status.IsRepo && !status.IsClean() {
 			m.gitStatuses[s.Name] = status
 		}
-	}
-	// Use fixed column width if any git statuses exist
-	if len(m.gitStatuses) > 0 {
-		m.maxGitStatusWidth = ui.GitStatusColumnWidth
 	}
 }
 
