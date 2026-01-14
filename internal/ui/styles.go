@@ -160,18 +160,25 @@ var (
 	TableHeaderStyle = lipgloss.NewStyle().
 				Padding(0, 1)
 
-	// Table header text style (dim, for column labels)
+	// Table header text style (bold, dim)
 	TableHeaderTextStyle = lipgloss.NewStyle().
+				Bold(true).
 				Foreground(ColorDim)
 
-	// CC header label style (hardcoded orange)
+	// CC header label style (bold, orange for Claude branding)
 	CCHeaderStyle = lipgloss.NewStyle().
+			Bold(true).
 			Foreground(HexClaudeOrange)
 )
 
 // RenderBorder returns a horizontal border line
 func RenderBorder(width int) string {
 	return BorderStyle.Render(strings.Repeat("─", width))
+}
+
+// RenderDottedBorder returns a subtle dotted horizontal line
+func RenderDottedBorder(width int) string {
+	return BorderStyle.Render(strings.Repeat("·", width))
 }
 
 // RenderTitleBar renders the inverted title bar with logo on left and view name on right

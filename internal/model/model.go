@@ -1824,7 +1824,9 @@ func (m Model) viewBookmarks() string {
 		})
 		b.WriteString(header)
 		b.WriteString("\n")
-		contentLines++
+		b.WriteString(ui.RenderDottedBorder(m.borderWidth()))
+		b.WriteString("\n")
+		contentLines += 2
 
 		scrollbar := ui.ScrollbarChars(m.bookmarkList.Len(), m.bookmarkList.Height(), scrollOffset, len(visibleBookmarks))
 
@@ -1946,7 +1948,9 @@ func (m Model) viewSessionList() string {
 		})
 		b.WriteString(header)
 		b.WriteString("\n")
-		contentLines++
+		b.WriteString(ui.RenderDottedBorder(m.borderWidth()))
+		b.WriteString("\n")
+		contentLines += 2
 	}
 
 	// Session list (only visible items)
