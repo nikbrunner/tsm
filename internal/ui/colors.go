@@ -99,6 +99,6 @@ var Colors = struct {
 	},
 	Bg: BgColors{
 		Default:  lipgloss.NoColor{},
-		TitleBar: blue,
+		TitleBar: black,
 	},
 }
