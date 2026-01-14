@@ -13,6 +13,9 @@ const (
 	// AppBorderOverhead is the total cells used by border + padding per axis
 	AppBorderOverheadX = 4 // left border + left padding + right padding + right border
 	AppBorderOverheadY = 2 // top border + bottom border (no vertical padding)
+
+	// ScrollbarColumnWidth is the space used by scrollbar + separator
+	ScrollbarColumnWidth = 2 // scrollbar char + space
 )
 
 // Styles
@@ -46,7 +49,8 @@ var (
 
 	SessionSelectedStyle = lipgloss.NewStyle().
 				Padding(0, 1).
-				Bold(true)
+				Bold(true).
+				Background(Colors.Bg.Selected)
 
 	// Window row styles (indented)
 	WindowStyle = lipgloss.NewStyle().
@@ -56,7 +60,8 @@ var (
 	WindowSelectedStyle = lipgloss.NewStyle().
 				Padding(0, 1).
 				PaddingLeft(10).
-				Bold(true)
+				Bold(true).
+				Background(Colors.Bg.Selected)
 
 	// Text styles
 	IndexStyle = lipgloss.NewStyle().
@@ -65,6 +70,7 @@ var (
 
 	IndexSelectedStyle = lipgloss.NewStyle().
 				Foreground(Colors.Fg.Selected).
+				Background(Colors.Bg.Selected).
 				Bold(true).
 				Width(3)
 
@@ -73,6 +79,7 @@ var (
 
 	SessionNameSelectedStyle = lipgloss.NewStyle().
 					Foreground(Colors.Fg.Selected).
+					Background(Colors.Bg.Selected).
 					Bold(true)
 
 	WindowNameStyle = lipgloss.NewStyle().
@@ -80,18 +87,20 @@ var (
 
 	WindowNameSelectedStyle = lipgloss.NewStyle().
 				Foreground(Colors.Fg.Selected).
+				Background(Colors.Bg.Selected).
 				Bold(true)
 
 	ExpandedIcon          = lipgloss.NewStyle().Foreground(Colors.Fg.Accent).Render("▼")
-	ExpandedIconSelected  = lipgloss.NewStyle().Foreground(Colors.Fg.Accent).Bold(true).Render("▼")
+	ExpandedIconSelected  = lipgloss.NewStyle().Foreground(Colors.Fg.Accent).Background(Colors.Bg.Selected).Bold(true).Render("▼")
 	CollapsedIcon         = lipgloss.NewStyle().Foreground(Colors.Fg.Muted).Render("▶")
-	CollapsedIconSelected = lipgloss.NewStyle().Foreground(Colors.Fg.Muted).Bold(true).Render("▶")
+	CollapsedIconSelected = lipgloss.NewStyle().Foreground(Colors.Fg.Muted).Background(Colors.Bg.Selected).Bold(true).Render("▶")
 
 	TimeStyle = lipgloss.NewStyle().
 			Foreground(Colors.Fg.Muted)
 
 	TimeSelectedStyle = lipgloss.NewStyle().
 				Foreground(Colors.Fg.Muted).
+				Background(Colors.Bg.Selected).
 				Bold(true)
 
 	// Claude status styles
@@ -288,9 +297,19 @@ const GitStatusColumnWidth = 20 // fits "99 files +99 -99"
 // FormatGitStatus formats git status for display
 // Returns empty string for clean repos (no indicator shown)
 // Format: 3 files +44 -7 (files blue, +additions green, -deletions red)
-func FormatGitStatus(dirty, additions, deletions int) string {
+func FormatGitStatus(dirty, additions, deletions int, selected bool) string {
 	if dirty == 0 && additions == 0 && deletions == 0 {
 		return ""
+	}
+
+	// Apply background when selected
+	filesStyle := GitFilesStyle
+	addStyle := GitAddStyle
+	delStyle := GitDelStyle
+	if selected {
+		filesStyle = filesStyle.Background(Colors.Bg.Selected)
+		addStyle = addStyle.Background(Colors.Bg.Selected)
+		delStyle = delStyle.Background(Colors.Bg.Selected)
 	}
 
 	var parts []string
@@ -300,19 +319,24 @@ func FormatGitStatus(dirty, additions, deletions int) string {
 		if dirty == 1 {
 			label = "file"
 		}
-		parts = append(parts, GitFilesStyle.Render(fmt.Sprintf("%d %s", dirty, label)))
+		parts = append(parts, filesStyle.Render(fmt.Sprintf("%d %s", dirty, label)))
 	}
 	if additions > 0 {
-		parts = append(parts, GitAddStyle.Render(fmt.Sprintf("+%d", additions)))
+		parts = append(parts, addStyle.Render(fmt.Sprintf("+%d", additions)))
 	}
 	if deletions > 0 {
-		parts = append(parts, GitDelStyle.Render(fmt.Sprintf("-%d", deletions)))
+		parts = append(parts, delStyle.Render(fmt.Sprintf("-%d", deletions)))
 	}
 
 	if len(parts) == 0 {
 		return ""
 	}
 
+	// Join with styled spaces when selected
+	if selected {
+		spacer := lipgloss.NewStyle().Background(Colors.Bg.Selected).Render(" ")
+		return strings.Join(parts, spacer)
+	}
 	return strings.Join(parts, " ")
 }
 

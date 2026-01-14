@@ -47,6 +47,14 @@ type PaneRowOpts struct {
 
 // Column component functions - each returns a styled string
 
+// SpacerStyle returns a spacer with background when selected
+func SpacerStyle(text string, selected bool) string {
+	if selected {
+		return lipgloss.NewStyle().Background(Colors.Bg.Selected).Render(text)
+	}
+	return text
+}
+
 // RenderIndex renders the session number (1-9)
 func RenderIndex(num int, selected bool) string {
 	label := fmt.Sprintf("%d", num)
@@ -120,32 +128,38 @@ func FormatTimeAgo(t time.Time) string {
 }
 
 // RenderGitStatusColumn renders the git status with padding to a fixed width
-func RenderGitStatusColumn(status *git.Status, maxWidth int) string {
+func RenderGitStatusColumn(status *git.Status, maxWidth int, selected bool) string {
 	if maxWidth == 0 {
 		return ""
 	}
 
 	if status == nil {
-		return strings.Repeat(" ", maxWidth)
+		return SpacerStyle(strings.Repeat(" ", maxWidth), selected)
 	}
 
-	formatted := FormatGitStatus(status.Dirty, status.Additions, status.Deletions)
+	formatted := FormatGitStatus(status.Dirty, status.Additions, status.Deletions, selected)
 	actualWidth := GitStatusWidth(status.Dirty, status.Additions, status.Deletions)
 
 	if actualWidth < maxWidth {
-		return formatted + strings.Repeat(" ", maxWidth-actualWidth)
+		padding := SpacerStyle(strings.Repeat(" ", maxWidth-actualWidth), selected)
+		return formatted + padding
 	}
 	return formatted
 }
 
 // RenderClaudeIcon renders a single-character Claude status icon
 // Returns a space for no status to preserve column alignment
-func RenderClaudeIcon(status *claude.Status, animFrame int) string {
+func RenderClaudeIcon(status *claude.Status, animFrame int, selected bool) string {
 	if status == nil || status.State == "" {
-		return " " // Reserved space for alignment
+		return SpacerStyle(" ", selected) // Reserved space for alignment
 	}
 	waitDuration := time.Since(status.Timestamp)
-	return FormatClaudeIcon(status.State, animFrame, waitDuration)
+	icon := FormatClaudeIcon(status.State, animFrame, waitDuration)
+	if selected {
+		// Re-apply the icon style with background
+		return lipgloss.NewStyle().Background(Colors.Bg.Selected).Render(icon)
+	}
+	return icon
 }
 
 // SessionRowOpts wraps RowOpts with session-specific settings
@@ -154,18 +168,18 @@ type SessionRowOpts struct {
 }
 
 // RenderSessionRow composes all columns into a complete session row
-func RenderSessionRow(name string, lastActivity time.Time, layout RowLayout, opts SessionRowOpts) string {
+func RenderSessionRow(name string, lastActivity time.Time, layout RowLayout, opts SessionRowOpts, width int) string {
 	cols := []string{
 		RenderIndex(opts.Num, opts.Selected),
-		" ",
+		SpacerStyle(" ", opts.Selected),
 		// Claude icon (after index, before expand arrow)
-		RenderClaudeIcon(opts.ClaudeStatus, opts.AnimFrame),
-		" ",
+		RenderClaudeIcon(opts.ClaudeStatus, opts.AnimFrame, opts.Selected),
+		SpacerStyle(" ", opts.Selected),
 	}
 
 	// Expand icon (optional)
 	if opts.ShowExpandIcon {
-		cols = append(cols, RenderExpandIcon(opts.Expanded, opts.Selected), " ")
+		cols = append(cols, RenderExpandIcon(opts.Expanded, opts.Selected), SpacerStyle(" ", opts.Selected))
 	}
 
 	// Name (always shown)
@@ -173,39 +187,45 @@ func RenderSessionRow(name string, lastActivity time.Time, layout RowLayout, opt
 
 	// Time ago (optional)
 	if opts.LastActivity != nil {
-		cols = append(cols, "  ", RenderTimeAgo(*opts.LastActivity, opts.Selected))
+		cols = append(cols, SpacerStyle("  ", opts.Selected), RenderTimeAgo(*opts.LastActivity, opts.Selected))
 	}
 
 	// Git status (optional column)
 	if layout.GitStatusWidth > 0 && opts.GitStatus != nil {
-		cols = append(cols, " ", RenderGitStatusColumn(opts.GitStatus, layout.GitStatusWidth))
+		cols = append(cols, SpacerStyle(" ", opts.Selected), RenderGitStatusColumn(opts.GitStatus, layout.GitStatusWidth, opts.Selected))
 	} else if layout.GitStatusWidth > 0 {
 		// Pad for alignment even when no git status
-		cols = append(cols, " ", strings.Repeat(" ", layout.GitStatusWidth))
+		cols = append(cols, SpacerStyle(" ", opts.Selected), SpacerStyle(strings.Repeat(" ", layout.GitStatusWidth), opts.Selected))
 	}
 
 	content := strings.Join(cols, "")
-	return SessionStyle.Render(content)
+	if opts.Selected {
+		return SessionSelectedStyle.Width(width).Render(content)
+	}
+	return SessionStyle.Width(width).Render(content)
 }
 
 // RenderBookmarkRow composes a bookmark row (simpler than session row)
-func RenderBookmarkRow(name string, layout RowLayout, opts RowOpts) string {
+func RenderBookmarkRow(name string, layout RowLayout, opts RowOpts, width int) string {
 	cols := []string{
 		RenderIndex(opts.Num, opts.Selected),
-		" ",
+		SpacerStyle(" ", opts.Selected),
 		// Claude icon column (always reserved for alignment with session rows)
-		RenderClaudeIcon(opts.ClaudeStatus, opts.AnimFrame),
-		" ",
+		RenderClaudeIcon(opts.ClaudeStatus, opts.AnimFrame, opts.Selected),
+		SpacerStyle(" ", opts.Selected),
 		RenderSessionName(name, layout.NameWidth, opts.Selected),
 	}
 
 	// Git status (optional)
 	if layout.GitStatusWidth > 0 && opts.GitStatus != nil {
-		cols = append(cols, " ", RenderGitStatusColumn(opts.GitStatus, layout.GitStatusWidth))
+		cols = append(cols, SpacerStyle(" ", opts.Selected), RenderGitStatusColumn(opts.GitStatus, layout.GitStatusWidth, opts.Selected))
 	}
 
 	content := strings.Join(cols, "")
-	return SessionStyle.Render(content)
+	if opts.Selected {
+		return SessionSelectedStyle.Width(width).Render(content)
+	}
+	return SessionStyle.Width(width).Render(content)
 }
 
 // TableHeaderOpts controls which columns appear in the header
@@ -221,6 +241,7 @@ func RenderTableHeader(layout RowLayout, opts TableHeaderOpts) string {
 	dim := TableHeaderTextStyle // shorthand for dim text
 
 	cols := []string{
+		"  ", // Align with scrollbar column in data rows
 		dim.Render(fmt.Sprintf("%-3s", "#")),
 		" ",
 		CCHeaderStyle.Render("CC"), // Claude Code status column (orange)
@@ -254,12 +275,12 @@ func RenderTableHeader(layout RowLayout, opts TableHeaderOpts) string {
 }
 
 // RenderWindowRow composes a window row
-func RenderWindowRow(index int, name string, opts WindowRowOpts) string {
+func RenderWindowRow(index int, name string, opts WindowRowOpts, width int) string {
 	content := RenderWindowName(index, name, opts.Selected)
 	if opts.Selected {
-		return WindowSelectedStyle.Render(content)
+		return WindowSelectedStyle.Width(width).Render(content)
 	}
-	return WindowStyle.Render(content)
+	return WindowStyle.Width(width).Render(content)
 }
 
 // RenderPaneRow composes a pane row (future use for helm-xdn)

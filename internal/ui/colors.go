@@ -66,6 +66,7 @@ type FgColors struct {
 type BgColors struct {
 	Default  lipgloss.TerminalColor // Terminal default (none)
 	TitleBar lipgloss.TerminalColor // Title bar background
+	Selected lipgloss.TerminalColor // Selected row background
 }
 
 // Colors is the global color configuration
@@ -100,5 +101,6 @@ var Colors = struct {
 	Bg: BgColors{
 		Default:  lipgloss.NoColor{},
 		TitleBar: black,
+		Selected: black,
 	},
 }

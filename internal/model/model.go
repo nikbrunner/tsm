@@ -1462,6 +1462,11 @@ func (m *Model) borderWidth() int {
 	return m.contentWidth()
 }
 
+// rowWidth returns the width available for row content (accounts for scrollbar column)
+func (m *Model) rowWidth() int {
+	return m.contentWidth() - ui.ScrollbarColumnWidth
+}
+
 // sessionMaxVisibleItems returns the actual number of session items that can be shown
 // based on window height, accounting for fixed UI elements
 func (m *Model) sessionMaxVisibleItems() int {
@@ -1836,8 +1841,12 @@ func (m Model) viewBookmarks() string {
 			slot := absoluteIdx + 1
 
 			if i < len(scrollbar) {
-				b.WriteString(scrollbar[i])
-				b.WriteString(" ")
+				if selected {
+					b.WriteString(ui.SpacerStyle(scrollbar[i]+" ", true))
+				} else {
+					b.WriteString(scrollbar[i])
+					b.WriteString(" ")
+				}
 			}
 
 			sessionName := m.extractSessionName(bookmark.Path)
@@ -1864,14 +1873,14 @@ func (m Model) viewBookmarks() string {
 				if status, ok := m.claudeStatuses[sessionName]; ok {
 					opts.ClaudeStatus = &status
 				}
-				b.WriteString(ui.RenderSessionRow(sessionName, session.LastActivity, layout, opts))
+				b.WriteString(ui.RenderSessionRow(sessionName, session.LastActivity, layout, opts, m.rowWidth()))
 				b.WriteString("\n")
 				contentLines++
 
 				// Show windows if expanded
 				if expanded {
 					for _, window := range session.Windows {
-						b.WriteString(ui.RenderWindowRow(window.Index, window.Name, ui.WindowRowOpts{Selected: false}))
+						b.WriteString(ui.RenderWindowRow(window.Index, window.Name, ui.WindowRowOpts{Selected: false}, m.rowWidth()))
 						b.WriteString("\n")
 						contentLines++
 					}
@@ -1883,7 +1892,7 @@ func (m Model) viewBookmarks() string {
 					Name:     sessionName,
 					Selected: selected,
 				}
-				b.WriteString(ui.RenderBookmarkRow(sessionName, layout, opts))
+				b.WriteString(ui.RenderBookmarkRow(sessionName, layout, opts, m.rowWidth()))
 				b.WriteString("\n")
 				contentLines++
 			}
@@ -1976,9 +1985,14 @@ func (m Model) viewSessionList() string {
 		selected := i == m.cursor
 		lineIdx := i - m.scrollOffset
 
-		// Scrollbar on the left
+		// Scrollbar on the left (styled when selected)
 		if lineIdx < len(scrollbar) {
-			b.WriteString(scrollbar[lineIdx])
+			if selected {
+				b.WriteString(ui.SpacerStyle(scrollbar[lineIdx]+" ", true))
+			} else {
+				b.WriteString(scrollbar[lineIdx])
+				b.WriteString(" ")
+			}
 		}
 
 		if item.IsSession {
@@ -2005,11 +2019,11 @@ func (m Model) viewSessionList() string {
 				opts.ClaudeStatus = &status
 			}
 
-			b.WriteString(ui.RenderSessionRow(session.Name, session.LastActivity, layout, opts))
+			b.WriteString(ui.RenderSessionRow(session.Name, session.LastActivity, layout, opts, m.rowWidth()))
 		} else {
 			session := m.sessions[item.SessionIndex]
 			window := session.Windows[item.WindowIndex]
-			b.WriteString(ui.RenderWindowRow(window.Index, window.Name, ui.WindowRowOpts{Selected: selected}))
+			b.WriteString(ui.RenderWindowRow(window.Index, window.Name, ui.WindowRowOpts{Selected: selected}, m.rowWidth()))
 		}
 		b.WriteString("\n")
 		contentLines++
