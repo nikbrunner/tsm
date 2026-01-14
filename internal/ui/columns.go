@@ -208,6 +208,49 @@ func RenderBookmarkRow(name string, layout RowLayout, opts RowOpts) string {
 	return SessionStyle.Render(content)
 }
 
+// TableHeaderOpts controls which columns appear in the header
+type TableHeaderOpts struct {
+	ShowExpandIcon bool
+	ShowTime       bool
+	ShowGit        bool
+	NameLabel      string // e.g., "Session" or "Bookmark"
+}
+
+// RenderTableHeader renders a header row above the content list
+func RenderTableHeader(layout RowLayout, opts TableHeaderOpts) string {
+	cols := []string{
+		fmt.Sprintf("%-3s", "#"),
+		" ",
+		"CC", // Claude Code status column
+		" ",
+	}
+
+	// Expand icon placeholder
+	if opts.ShowExpandIcon {
+		cols = append(cols, " ", " ")
+	}
+
+	// Name column header
+	nameLabel := opts.NameLabel
+	if nameLabel == "" {
+		nameLabel = "Name"
+	}
+	cols = append(cols, fmt.Sprintf("%-*s", layout.NameWidth, nameLabel))
+
+	// Time column header
+	if opts.ShowTime {
+		cols = append(cols, "  ", fmt.Sprintf("%-8s", "Activity"))
+	}
+
+	// Git column header
+	if opts.ShowGit && layout.GitStatusWidth > 0 {
+		cols = append(cols, " ", fmt.Sprintf("%-*s", layout.GitStatusWidth, "Git"))
+	}
+
+	content := strings.Join(cols, "")
+	return TableHeaderStyle.Render(content)
+}
+
 // RenderWindowRow composes a window row
 func RenderWindowRow(index int, name string, opts WindowRowOpts) string {
 	content := RenderWindowName(index, name, opts.Selected)

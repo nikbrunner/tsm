@@ -1467,14 +1467,15 @@ func (m *Model) borderWidth() int {
 func (m *Model) sessionMaxVisibleItems() int {
 	contentH := m.contentHeight()
 	if contentH > 0 {
-		// Reserve: title(1) + prompt(1) + border(1) + footer border(1) + notification(1) + state(1) + hints(2) = 8 lines
-		availableForContent := contentH - 8
-		if availableForContent > 0 {
-			return availableForContent
+		overhead := ui.BaseOverhead
+		if m.sessionsLoaded && len(m.items) > 0 {
+			overhead = ui.WithTableHeaderOverhead
+		}
+		if available := contentH - overhead; available > 0 {
+			return available
 		}
 	}
-	// Fallback when height unknown
-	return 10
+	return ui.DefaultVisibleItems
 }
 
 // projectMaxVisibleItems returns the actual number of items that can be shown
@@ -1482,14 +1483,11 @@ func (m *Model) sessionMaxVisibleItems() int {
 func (m *Model) projectMaxVisibleItems() int {
 	contentH := m.contentHeight()
 	if contentH > 0 {
-		// Reserve: title(1) + prompt(1) + border(1) + footer border(1) + notification(1) + state(1) + hints(2) = 8 lines
-		availableForContent := contentH - 8
-		if availableForContent > 0 {
-			return availableForContent
+		if available := contentH - ui.BaseOverhead; available > 0 {
+			return available
 		}
 	}
-	// Fallback when height unknown
-	return 10
+	return ui.DefaultVisibleItems
 }
 
 // cloneMaxVisibleItems returns the actual number of items that can be shown
@@ -1497,14 +1495,11 @@ func (m *Model) projectMaxVisibleItems() int {
 func (m *Model) cloneMaxVisibleItems() int {
 	contentH := m.contentHeight()
 	if contentH > 0 {
-		// Reserve: title(1) + prompt(1) + border(1) + footer border(1) + notification(1) + state(1) + hints(2) = 8 lines
-		availableForContent := contentH - 8
-		if availableForContent > 0 {
-			return availableForContent
+		if available := contentH - ui.BaseOverhead; available > 0 {
+			return available
 		}
 	}
-	// Fallback when height unknown
-	return 10
+	return ui.DefaultVisibleItems
 }
 
 // fuzzyMatch checks if the pattern matches the text (case-insensitive, substring match)
@@ -1630,8 +1625,8 @@ func (m Model) viewPickDirectory() string {
 	// Add padding to push footer to bottom
 	// Fixed header: 3 lines (title + prompt + border)
 	// Fixed footer: 5 lines (border + notification + state + hints(2))
-	headerLines := 3
-	footerLines := 5
+	headerLines := ui.HeaderOverhead
+	footerLines := ui.FooterOverhead
 	contentH := m.contentHeight()
 	if contentH > 0 {
 		padding := contentH - headerLines - contentLines - footerLines
@@ -1737,8 +1732,8 @@ func (m Model) viewCloneRepo() string {
 	// Add padding to push footer to bottom
 	// Fixed header: 3 lines (title + prompt + border)
 	// Fixed footer: 5 lines (border + notification + state + hints(2))
-	headerLines := 3
-	footerLines := 5
+	headerLines := ui.HeaderOverhead
+	footerLines := ui.FooterOverhead
 	contentH := m.contentHeight()
 	if contentH > 0 {
 		padding := contentH - headerLines - contentLines - footerLines
@@ -1790,12 +1785,11 @@ func (m Model) viewBookmarks() string {
 		}
 		contentLines++
 	} else {
-		// Calculate max visible items
-		// Fixed header: 3 lines, Fixed footer: 4 lines
+		// Calculate max visible items (includes table header)
 		contentH := m.contentHeight()
-		maxItems := 10 // fallback
+		maxItems := ui.DefaultVisibleItems
 		if contentH > 0 {
-			if available := contentH - 7; available > 0 {
+			if available := contentH - ui.WithTableHeaderOverhead; available > 0 {
 				maxItems = available
 			}
 		}
@@ -1824,6 +1818,17 @@ func (m Model) viewBookmarks() string {
 			NameWidth:      maxNameWidth,
 			GitStatusWidth: maxGitWidth,
 		}
+
+		// Table header row
+		header := ui.RenderTableHeader(layout, ui.TableHeaderOpts{
+			ShowExpandIcon: false,
+			ShowTime:       false,
+			ShowGit:        maxGitWidth > 0,
+			NameLabel:      "Bookmark",
+		})
+		b.WriteString(header)
+		b.WriteString("\n")
+		contentLines++
 
 		scrollbar := ui.ScrollbarChars(m.bookmarkList.Len(), m.bookmarkList.Height(), scrollOffset, len(visibleBookmarks))
 
@@ -1889,8 +1894,8 @@ func (m Model) viewBookmarks() string {
 
 	// Padding to push footer to bottom
 	// Fixed header: 3 lines, Fixed footer: 5 lines (border + notification + state + hints(2))
-	headerLines := 3
-	footerLines := 5
+	headerLines := ui.HeaderOverhead
+	footerLines := ui.FooterOverhead
 	contentH := m.contentHeight()
 	if contentH > 0 {
 		padding := contentH - headerLines - contentLines - footerLines
@@ -1926,6 +1931,28 @@ func (m Model) viewSessionList() string {
 	b.WriteString(ui.RenderBorder(m.borderWidth()))
 	b.WriteString("\n")
 
+	// Build layout for consistent column widths (needed for header)
+	layout := ui.RowLayout{
+		NameWidth:      m.maxNameWidth,
+		GitStatusWidth: m.maxGitStatusWidth,
+	}
+
+	// Track content lines for padding calculation
+	contentLines := 0
+
+	// Table header row (only show when sessions are loaded)
+	if m.sessionsLoaded && len(m.items) > 0 {
+		header := ui.RenderTableHeader(layout, ui.TableHeaderOpts{
+			ShowExpandIcon: true,
+			ShowTime:       true,
+			ShowGit:        m.maxGitStatusWidth > 0,
+			NameLabel:      "Session",
+		})
+		b.WriteString(header)
+		b.WriteString("\n")
+		contentLines++
+	}
+
 	// Session list (only visible items)
 	maxVisible := m.sessionMaxVisibleItems()
 	endIdx := m.scrollOffset + maxVisible
@@ -1944,14 +1971,6 @@ func (m Model) viewSessionList() string {
 			sessionNum++
 		}
 	}
-
-	// Build layout for consistent column widths
-	layout := ui.RowLayout{
-		NameWidth:      m.maxNameWidth,
-		GitStatusWidth: m.maxGitStatusWidth,
-	}
-
-	contentLines := 0
 	for i := m.scrollOffset; i < endIdx; i++ {
 		item := m.items[i]
 		selected := i == m.cursor
@@ -2009,8 +2028,8 @@ func (m Model) viewSessionList() string {
 	// Add padding to push footer to bottom
 	// Fixed header: 3 lines (title + prompt + border)
 	// Fixed footer: 5 lines (border + notification + state + hints(2))
-	headerLines := 3
-	footerLines := 5
+	headerLines := ui.HeaderOverhead
+	footerLines := ui.FooterOverhead
 	contentH := m.contentHeight()
 	if contentH > 0 {
 		padding := contentH - headerLines - contentLines - footerLines

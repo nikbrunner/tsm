@@ -168,6 +168,11 @@ var (
 	StateStyle = lipgloss.NewStyle().
 			Foreground(ColorDim).
 			Padding(0, 1)
+
+	// Table header style (subtle, dim)
+	TableHeaderStyle = lipgloss.NewStyle().
+				Foreground(ColorDim).
+				Padding(0, 1)
 )
 
 // RenderBorder returns a horizontal border line
