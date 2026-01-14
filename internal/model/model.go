@@ -1330,7 +1330,7 @@ func (m *Model) loadGitStatuses() {
 }
 
 func (m *Model) calculateColumnWidths() {
-	m.maxNameWidth = 0
+	// Don't reset - preserve cached width to prevent layout shift
 	for _, s := range m.sessions {
 		if len(s.Name) > m.maxNameWidth {
 			m.maxNameWidth = len(s.Name)
@@ -1798,15 +1798,11 @@ func (m Model) viewBookmarks() string {
 		visibleBookmarks := m.bookmarkList.VisibleItems()
 		scrollOffset := m.bookmarkList.ScrollOffset()
 
-		// Calculate layout for bookmarks - find max name width
-		maxNameWidth := 0
+		// Calculate layout for bookmarks - use shared maxNameWidth for consistency
 		maxGitWidth := 0
 		for _, bookmark := range visibleBookmarks {
-			sessionName := m.extractSessionName(bookmark.Path)
-			if len(sessionName) > maxNameWidth {
-				maxNameWidth = len(sessionName)
-			}
 			// Check if session has git status
+			sessionName := m.extractSessionName(bookmark.Path)
 			if _, ok := m.gitStatuses[sessionName]; ok && m.config.GitStatusEnabled {
 				if ui.GitStatusColumnWidth > maxGitWidth {
 					maxGitWidth = ui.GitStatusColumnWidth
@@ -1815,7 +1811,7 @@ func (m Model) viewBookmarks() string {
 		}
 
 		layout := ui.RowLayout{
-			NameWidth:      maxNameWidth,
+			NameWidth:      m.maxNameWidth, // Use shared width for stable layout
 			GitStatusWidth: maxGitWidth,
 		}
 
@@ -2073,6 +2069,12 @@ type cachedSession struct {
 	LastActivity time.Time `json:"last_activity"`
 }
 
+// sessionCache wraps cached sessions with layout metadata for stable column widths
+type sessionCache struct {
+	Sessions     []cachedSession `json:"sessions"`
+	MaxNameWidth int             `json:"max_name_width"` // Persisted to prevent layout shift
+}
+
 // loadSessionCache loads cached sessions from disk
 // Returns nil if cache doesn't exist or is invalid
 func (m *Model) loadSessionCache() []tmux.Session {
@@ -2081,6 +2083,21 @@ func (m *Model) loadSessionCache() []tmux.Session {
 		return nil
 	}
 
+	// Try new format first (with layout metadata)
+	var cache sessionCache
+	if err := json.Unmarshal(data, &cache); err == nil && len(cache.Sessions) > 0 {
+		m.maxNameWidth = cache.MaxNameWidth
+		sessions := make([]tmux.Session, len(cache.Sessions))
+		for i, c := range cache.Sessions {
+			sessions[i] = tmux.Session{
+				Name:         c.Name,
+				LastActivity: c.LastActivity,
+			}
+		}
+		return sessions
+	}
+
+	// Fallback: try old format (array of sessions) for backwards compatibility
 	var cached []cachedSession
 	if err := json.Unmarshal(data, &cached); err != nil {
 		return nil
@@ -2106,7 +2123,12 @@ func (m *Model) saveSessionCache() {
 		}
 	}
 
-	data, err := json.Marshal(cached)
+	cache := sessionCache{
+		Sessions:     cached,
+		MaxNameWidth: m.maxNameWidth,
+	}
+
+	data, err := json.Marshal(cache)
 	if err != nil {
 		return
 	}
