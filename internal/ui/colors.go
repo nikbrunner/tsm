@@ -2,26 +2,15 @@ package ui
 
 import "github.com/charmbracelet/lipgloss"
 
-// ANSI 16 colors (terminal-adaptive)
-//
-//nolint:unused
+// ANSI colors (terminal-adaptive)
 var (
-	black         = lipgloss.Color("0")
-	red           = lipgloss.Color("1")
-	green         = lipgloss.Color("2")
-	yellow        = lipgloss.Color("3")
-	blue          = lipgloss.Color("4")
-	magenta       = lipgloss.Color("5")
-	cyan          = lipgloss.Color("6")
-	white         = lipgloss.Color("7")
-	brightBlack   = lipgloss.Color("8")
-	brightRed     = lipgloss.Color("9")
-	brightGreen   = lipgloss.Color("10")
-	brightYellow  = lipgloss.Color("11")
-	brightBlue    = lipgloss.Color("12")
-	brightMagenta = lipgloss.Color("13")
-	brightCyan    = lipgloss.Color("14")
-	brightWhite   = lipgloss.Color("15")
+	red         = lipgloss.Color("1")
+	green       = lipgloss.Color("2")
+	yellow      = lipgloss.Color("3")
+	blue        = lipgloss.Color("4")
+	white       = lipgloss.Color("7")
+	brightBlack = lipgloss.Color("8")
+	brightWhite = lipgloss.Color("15")
 )
 
 // Hex colors (terminal-independent)
