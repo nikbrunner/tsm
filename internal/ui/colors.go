@@ -2,18 +2,30 @@ package ui
 
 import "github.com/charmbracelet/lipgloss"
 
-// Base palette - raw color values (private)
+// ANSI 16 colors (terminal-adaptive)
+//
+//nolint:unused
 var (
-	// ANSI colors (terminal-adaptive)
-	basePrimary   = lipgloss.Color("4")  // Blue
-	baseSecondary = lipgloss.Color("7")  // White/light gray
-	baseSuccess   = lipgloss.Color("2")  // Green
-	baseWarning   = lipgloss.Color("3")  // Yellow
-	baseError     = lipgloss.Color("1")  // Red
-	baseDim       = lipgloss.Color("8")  // Dark gray
-	baseWhite     = lipgloss.Color("15") // Bright white
+	black         = lipgloss.Color("0")
+	red           = lipgloss.Color("1")
+	green         = lipgloss.Color("2")
+	yellow        = lipgloss.Color("3")
+	blue          = lipgloss.Color("4")
+	magenta       = lipgloss.Color("5")
+	cyan          = lipgloss.Color("6")
+	white         = lipgloss.Color("7")
+	brightBlack   = lipgloss.Color("8")
+	brightRed     = lipgloss.Color("9")
+	brightGreen   = lipgloss.Color("10")
+	brightYellow  = lipgloss.Color("11")
+	brightBlue    = lipgloss.Color("12")
+	brightMagenta = lipgloss.Color("13")
+	brightCyan    = lipgloss.Color("14")
+	brightWhite   = lipgloss.Color("15")
+)
 
-	// Hex colors (terminal-independent)
+// Hex colors (terminal-independent)
+var (
 	hexClaudeOrange = lipgloss.Color("#DA7756")
 	hexGitBlue      = lipgloss.Color("#61AFEF")
 	hexGitGreen     = lipgloss.Color("#98C379")
@@ -63,23 +75,23 @@ var Colors = struct {
 }{
 	Fg: FgColors{
 		Default:  lipgloss.NoColor{},
-		Selected: baseWarning,
-		Muted:    baseDim,
-		Accent:   basePrimary,
-		Subtle:   baseSecondary,
-		Error:    baseError,
-		Border:   baseDim,
+		Selected: yellow,
+		Muted:    brightBlack,
+		Accent:   blue,
+		Subtle:   white,
+		Error:    red,
+		Border:   brightBlack,
 
-		TitleBar: baseWhite,
+		TitleBar: brightWhite,
 
 		TableHeader: lipgloss.NoColor{},
 		SessionName: lipgloss.NoColor{},
 		WindowName:  lipgloss.NoColor{},
 
 		ClaudeHeader:  hexClaudeOrange,
-		ClaudeWorking: baseWarning,
-		ClaudeWaiting: baseSuccess,
-		ClaudeUrgent:  baseError,
+		ClaudeWorking: yellow,
+		ClaudeWaiting: green,
+		ClaudeUrgent:  red,
 
 		GitFiles: hexGitBlue,
 		GitAdd:   hexGitGreen,
@@ -87,6 +99,6 @@ var Colors = struct {
 	},
 	Bg: BgColors{
 		Default:  lipgloss.NoColor{},
-		TitleBar: basePrimary,
+		TitleBar: blue,
 	},
 }
