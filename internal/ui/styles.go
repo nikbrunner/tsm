@@ -114,15 +114,15 @@ var (
 	ClaudeWaitingUrgentStyle = lipgloss.NewStyle().
 					Foreground(ColorError)
 
-	// Git status styles
-	GitDirtyStyle = lipgloss.NewStyle().
-			Foreground(ColorWarning)
+	// Git status styles (hardcoded ANSI colors)
+	GitFilesStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("4")) // Blue
 
 	GitAheadStyle = lipgloss.NewStyle().
-			Foreground(ColorSuccess)
+			Foreground(lipgloss.Color("2")) // Green
 
 	GitBehindStyle = lipgloss.NewStyle().
-			Foreground(ColorError)
+			Foreground(lipgloss.Color("1")) // Red
 
 	// Input styles
 	InputPromptStyle = lipgloss.NewStyle().
@@ -271,11 +271,11 @@ func FormatClaudeIcon(state string, animationFrame int, waitDuration time.Durati
 }
 
 // GitStatusColumnWidth is the fixed width for the git status column
-const GitStatusColumnWidth = 16 // fits [99cf +99 -99]
+const GitStatusColumnWidth = 20 // fits "99 files +99 -99"
 
 // FormatGitStatus formats git status for display
 // Returns empty string for clean repos (no indicator shown)
-// Format: [13cf +2 -1] (compact: cf=changed files, +=ahead, -=behind)
+// Format: 3 files +2 -1 (files blue, +ahead green, -behind red)
 func FormatGitStatus(dirty, ahead, behind int) string {
 	if dirty == 0 && ahead == 0 && behind == 0 {
 		return ""
@@ -284,7 +284,7 @@ func FormatGitStatus(dirty, ahead, behind int) string {
 	var parts []string
 
 	if dirty > 0 {
-		parts = append(parts, GitDirtyStyle.Render(fmt.Sprintf("%dcf", dirty)))
+		parts = append(parts, GitFilesStyle.Render(fmt.Sprintf("%d files", dirty)))
 	}
 	if ahead > 0 {
 		parts = append(parts, GitAheadStyle.Render(fmt.Sprintf("+%d", ahead)))
@@ -297,7 +297,7 @@ func FormatGitStatus(dirty, ahead, behind int) string {
 		return ""
 	}
 
-	return "[" + strings.Join(parts, " ") + "]"
+	return strings.Join(parts, " ")
 }
 
 // GitStatusWidth returns the visual width of a git status string (without ANSI codes)
@@ -309,7 +309,7 @@ func GitStatusWidth(dirty, ahead, behind int) int {
 	var parts []string
 
 	if dirty > 0 {
-		parts = append(parts, fmt.Sprintf("%dcf", dirty))
+		parts = append(parts, fmt.Sprintf("%d files", dirty))
 	}
 	if ahead > 0 {
 		parts = append(parts, fmt.Sprintf("+%d", ahead))
@@ -322,8 +322,7 @@ func GitStatusWidth(dirty, ahead, behind int) int {
 		return 0
 	}
 
-	// [parts joined by " "]
-	return len("[") + len(strings.Join(parts, " ")) + len("]")
+	return len(strings.Join(parts, " "))
 }
 
 // ScrollbarChars returns scrollbar characters for each visible line
