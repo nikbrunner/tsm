@@ -2,6 +2,7 @@ package tmux
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"sort"
 	"strconv"
@@ -133,9 +134,13 @@ func CreateSession(name, dir string) error {
 	return exec.Command("tmux", "new-session", "-d", "-s", name, "-c", dir).Run()
 }
 
-// SwitchClient switches the tmux client to a session or window
+// SwitchClient switches the tmux client to a session or window.
+// If running inside tmux, uses switch-client. If outside, uses attach-session.
 func SwitchClient(target string) error {
-	return exec.Command("tmux", "switch-client", "-t", target).Run()
+	if os.Getenv("TMUX") != "" {
+		return exec.Command("tmux", "switch-client", "-t", target).Run()
+	}
+	return exec.Command("tmux", "attach-session", "-t", target).Run()
 }
 
 // SelectWindow selects a specific window in the current client
