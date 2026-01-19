@@ -71,9 +71,9 @@ func TestFuzzyMatch(t *testing.T) {
 func TestIsCursorValid(t *testing.T) {
 	m := Model{
 		items: []Item{
-			{IsSession: true, SessionIndex: 0},
-			{IsSession: true, SessionIndex: 1},
-			{IsSession: true, SessionIndex: 2},
+			{Type: ItemTypeSession, SessionIndex: 0},
+			{Type: ItemTypeSession, SessionIndex: 1},
+			{Type: ItemTypeSession, SessionIndex: 2},
 		},
 	}
 
@@ -107,7 +107,7 @@ func TestGetTargetName(t *testing.T) {
 			{
 				Name: "session1",
 				Windows: []tmux.Window{
-					{Index: 1, Name: "window1"},
+					{Index: 1, Name: "window1", Panes: []tmux.Pane{{Index: 0, Command: "zsh"}, {Index: 1, Command: "nvim"}}},
 					{Index: 2, Name: "window2"},
 				},
 			},
@@ -127,23 +127,33 @@ func TestGetTargetName(t *testing.T) {
 	}{
 		{
 			name: "session item",
-			item: Item{IsSession: true, SessionIndex: 0},
+			item: Item{Type: ItemTypeSession, SessionIndex: 0},
 			want: "session1",
 		},
 		{
 			name: "second session",
-			item: Item{IsSession: true, SessionIndex: 1},
+			item: Item{Type: ItemTypeSession, SessionIndex: 1},
 			want: "session2",
 		},
 		{
 			name: "window item",
-			item: Item{IsSession: false, SessionIndex: 0, WindowIndex: 0},
+			item: Item{Type: ItemTypeWindow, SessionIndex: 0, WindowIndex: 0},
 			want: "session1:1",
 		},
 		{
 			name: "second window",
-			item: Item{IsSession: false, SessionIndex: 0, WindowIndex: 1},
+			item: Item{Type: ItemTypeWindow, SessionIndex: 0, WindowIndex: 1},
 			want: "session1:2",
+		},
+		{
+			name: "pane item",
+			item: Item{Type: ItemTypePane, SessionIndex: 0, WindowIndex: 0, PaneIndex: 0},
+			want: "session1:1.0",
+		},
+		{
+			name: "second pane",
+			item: Item{Type: ItemTypePane, SessionIndex: 0, WindowIndex: 0, PaneIndex: 1},
+			want: "session1:1.1",
 		},
 	}
 

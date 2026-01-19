@@ -39,9 +39,10 @@ type RowOpts struct {
 // WindowRowOpts contains per-row options for rendering a window
 type WindowRowOpts struct {
 	Selected bool
+	Expanded bool // Window is expanded to show panes
 }
 
-// PaneRowOpts contains per-row options for rendering a pane (future use)
+// PaneRowOpts contains per-row options for rendering a pane
 type PaneRowOpts struct {
 	Selected bool
 }
@@ -285,23 +286,36 @@ func RenderTableHeader(layout RowLayout, opts TableHeaderOpts) string {
 
 // RenderWindowRow composes a window row
 func RenderWindowRow(index int, name string, opts WindowRowOpts, width int) string {
-	content := RenderWindowName(index, name, opts.Selected)
+	var parts []string
+
+	// Expand icon for windows (shows if window can be expanded to show panes)
+	parts = append(parts, RenderExpandIcon(opts.Expanded, opts.Selected))
+	parts = append(parts, SpacerStyle(" ", opts.Selected))
+
+	// Window name with index
+	parts = append(parts, RenderWindowName(index, name, opts.Selected))
+
+	content := strings.Join(parts, "")
 	if opts.Selected {
 		return WindowSelectedStyle.Width(width).Render(content)
 	}
 	return WindowStyle.Width(width).Render(content)
 }
 
-// RenderPaneRow composes a pane row (future use for helm-xdn)
-// Panes will be indented further than windows
-func RenderPaneRow(index int, title string, opts PaneRowOpts) string {
-	text := fmt.Sprintf("%d: %s", index, title)
-	if opts.Selected {
-		// TODO: Add PaneSelectedStyle when implementing helm-xdn
-		return WindowSelectedStyle.PaddingLeft(14).Render(text)
+// RenderPaneRow composes a pane row
+// Panes are indented further than windows
+func RenderPaneRow(index int, command string, active bool, opts PaneRowOpts, width int) string {
+	// Format: "index: command" with "*" for active pane
+	activeMarker := " "
+	if active {
+		activeMarker = "*"
 	}
-	// TODO: Add PaneStyle when implementing helm-xdn
-	return WindowStyle.PaddingLeft(14).Render(text)
+	text := fmt.Sprintf("%s %d: %s", activeMarker, index, command)
+
+	if opts.Selected {
+		return PaneSelectedStyle.Width(width).Render(text)
+	}
+	return PaneStyle.Width(width).Render(text)
 }
 
 // ItemDepth represents the hierarchy level of an item

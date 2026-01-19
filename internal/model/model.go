@@ -57,11 +57,21 @@ func (m Mode) String() string {
 	}
 }
 
-// Item represents either a session or a window in the flattened list
+// ItemType represents the type of item in the flattened list
+type ItemType int
+
+const (
+	ItemTypeSession ItemType = iota
+	ItemTypeWindow
+	ItemTypePane
+)
+
+// Item represents a session, window, or pane in the flattened list
 type Item struct {
-	IsSession    bool
+	Type         ItemType
 	SessionIndex int // Index in the sessions slice
-	WindowIndex  int // Index in the session's windows slice (only for windows)
+	WindowIndex  int // Index in the session's windows slice (for windows and panes)
+	PaneIndex    int // Index in the window's panes slice (for panes only)
 }
 
 // Model is the main application state
@@ -769,7 +779,7 @@ func (m *Model) addSelectedToBookmarks() (tea.Model, tea.Cmd) {
 	}
 
 	item := m.items[m.cursor]
-	if !item.IsSession {
+	if item.Type != ItemTypeSession {
 		m.setError("Select a session to bookmark")
 		return m, nil
 	}
@@ -1095,27 +1105,51 @@ func (m *Model) expandCurrent() {
 	}
 
 	item := m.items[m.cursor]
-	if !item.IsSession {
-		return
-	}
 
-	// Collapse all other sessions first
-	for i := range m.sessions {
-		m.sessions[i].Expanded = false
-	}
-
-	session := &m.sessions[item.SessionIndex]
-	if len(session.Windows) == 0 {
-		// Load windows
-		windows, err := tmux.ListWindows(session.Name)
-		if err != nil {
-			m.setError("Error loading windows: %v", err)
-			return
+	switch item.Type {
+	case ItemTypeSession:
+		// Collapse all other sessions first
+		for i := range m.sessions {
+			m.sessions[i].Expanded = false
 		}
-		session.Windows = windows
+
+		session := &m.sessions[item.SessionIndex]
+		if len(session.Windows) == 0 {
+			// Load windows lazily
+			windows, err := tmux.ListWindows(session.Name)
+			if err != nil {
+				m.setError("Error loading windows: %v", err)
+				return
+			}
+			session.Windows = windows
+		}
+		session.Expanded = true
+		m.rebuildItems()
+
+	case ItemTypeWindow:
+		session := &m.sessions[item.SessionIndex]
+		window := &session.Windows[item.WindowIndex]
+
+		// Collapse other windows in this session first
+		for i := range session.Windows {
+			session.Windows[i].Expanded = false
+		}
+
+		if len(window.Panes) == 0 {
+			// Load panes lazily
+			panes, err := tmux.ListPanes(session.Name, window.Index)
+			if err != nil {
+				m.setError("Error loading panes: %v", err)
+				return
+			}
+			window.Panes = panes
+		}
+		window.Expanded = true
+		m.rebuildItems()
+
+	case ItemTypePane:
+		// Panes are leaf nodes, no-op
 	}
-	session.Expanded = true
-	m.rebuildItems()
 }
 
 func (m *Model) collapseCurrent() {
@@ -1125,23 +1159,39 @@ func (m *Model) collapseCurrent() {
 
 	item := m.items[m.cursor]
 
-	var sessionIdx int
-	if item.IsSession {
-		sessionIdx = item.SessionIndex
-	} else {
-		// Collapse parent session
-		sessionIdx = item.SessionIndex
+	switch item.Type {
+	case ItemTypeSession:
+		// Collapse the session
+		m.sessions[item.SessionIndex].Expanded = false
+		m.rebuildItems()
+
+	case ItemTypeWindow:
+		// Collapse parent session, move cursor to session
+		sessionIdx := item.SessionIndex
+		m.sessions[sessionIdx].Expanded = false
 		// Move cursor to the session
 		for i, it := range m.items {
-			if it.IsSession && it.SessionIndex == sessionIdx {
+			if it.Type == ItemTypeSession && it.SessionIndex == sessionIdx {
 				m.cursor = i
 				break
 			}
 		}
-	}
+		m.rebuildItems()
 
-	m.sessions[sessionIdx].Expanded = false
-	m.rebuildItems()
+	case ItemTypePane:
+		// Collapse parent window, move cursor to window
+		sessionIdx := item.SessionIndex
+		windowIdx := item.WindowIndex
+		m.sessions[sessionIdx].Windows[windowIdx].Expanded = false
+		// Move cursor to the window
+		for i, it := range m.items {
+			if it.Type == ItemTypeWindow && it.SessionIndex == sessionIdx && it.WindowIndex == windowIdx {
+				m.cursor = i
+				break
+			}
+		}
+		m.rebuildItems()
+	}
 }
 
 func (m *Model) selectCurrent() (tea.Model, tea.Cmd) {
@@ -1164,9 +1214,9 @@ func (m *Model) openLazygit() (tea.Model, tea.Cmd) {
 	}
 
 	item := m.items[m.cursor]
-	if !item.IsSession {
-		// For windows, use the parent session
-		item = Item{IsSession: true, SessionIndex: item.SessionIndex}
+	if item.Type != ItemTypeSession {
+		// For windows/panes, use the parent session
+		item = Item{Type: ItemTypeSession, SessionIndex: item.SessionIndex}
 	}
 
 	session := m.sessions[item.SessionIndex]
@@ -1192,10 +1242,13 @@ func (m *Model) confirmKill() (tea.Model, tea.Cmd) {
 	item := m.items[m.cursor]
 	m.killTarget = m.getTargetName(item)
 
-	if item.IsSession {
+	switch item.Type {
+	case ItemTypeSession:
 		m.message = fmt.Sprintf("Kill \"%s\"?", m.killTarget)
-	} else {
+	case ItemTypeWindow:
 		m.message = fmt.Sprintf("Kill window \"%s\"?", m.killTarget)
+	case ItemTypePane:
+		m.message = fmt.Sprintf("Kill pane \"%s\"?", m.killTarget)
 	}
 
 	m.mode = ModeConfirmKill
@@ -1210,18 +1263,27 @@ func (m *Model) killCurrent() (tea.Model, tea.Cmd) {
 	item := m.items[m.cursor]
 	var err error
 
-	if item.IsSession {
+	switch item.Type {
+	case ItemTypeSession:
 		session := m.sessions[item.SessionIndex]
 		err = tmux.KillSession(session.Name)
 		if err == nil {
 			m.message = fmt.Sprintf("Killed \"%s\"", session.Name)
 		}
-	} else {
+	case ItemTypeWindow:
 		session := m.sessions[item.SessionIndex]
 		window := session.Windows[item.WindowIndex]
 		err = tmux.KillWindow(session.Name, window.Index)
 		if err == nil {
 			m.message = fmt.Sprintf("Killed window %d", window.Index)
+		}
+	case ItemTypePane:
+		session := m.sessions[item.SessionIndex]
+		window := session.Windows[item.WindowIndex]
+		pane := window.Panes[item.PaneIndex]
+		err = tmux.KillPane(session.Name, window.Index, pane.Index)
+		if err == nil {
+			m.message = fmt.Sprintf("Killed pane %d", pane.Index)
 		}
 	}
 
@@ -1459,17 +1521,29 @@ func (m *Model) rebuildItems() {
 		}
 
 		m.items = append(m.items, Item{
-			IsSession:    true,
+			Type:         ItemTypeSession,
 			SessionIndex: i,
 		})
 
 		if session.Expanded {
-			for j := range session.Windows {
+			for j, window := range session.Windows {
 				m.items = append(m.items, Item{
-					IsSession:    false,
+					Type:         ItemTypeWindow,
 					SessionIndex: i,
 					WindowIndex:  j,
 				})
+
+				// Add panes if window is expanded
+				if window.Expanded {
+					for k := range window.Panes {
+						m.items = append(m.items, Item{
+							Type:         ItemTypePane,
+							SessionIndex: i,
+							WindowIndex:  j,
+							PaneIndex:    k,
+						})
+					}
+				}
 			}
 		}
 	}
@@ -1580,12 +1654,20 @@ func (m *Model) isCursorValid() bool {
 
 // getTargetName returns the tmux target name for the given item
 func (m *Model) getTargetName(item Item) string {
-	if item.IsSession {
-		return m.sessions[item.SessionIndex].Name
-	}
 	session := m.sessions[item.SessionIndex]
-	window := session.Windows[item.WindowIndex]
-	return fmt.Sprintf("%s:%d", session.Name, window.Index)
+	switch item.Type {
+	case ItemTypeSession:
+		return session.Name
+	case ItemTypeWindow:
+		window := session.Windows[item.WindowIndex]
+		return fmt.Sprintf("%s:%d", session.Name, window.Index)
+	case ItemTypePane:
+		window := session.Windows[item.WindowIndex]
+		pane := window.Panes[item.PaneIndex]
+		return fmt.Sprintf("%s:%d.%d", session.Name, window.Index, pane.Index)
+	default:
+		return session.Name
+	}
 }
 
 // setError sets an error message on the model
@@ -2039,7 +2121,7 @@ func (m Model) viewSessionList() string {
 	// Calculate session numbers (count sessions before visible area)
 	sessionNum := 0
 	for i := 0; i < m.scrollOffset && i < len(m.items); i++ {
-		if m.items[i].IsSession {
+		if m.items[i].Type == ItemTypeSession {
 			sessionNum++
 		}
 	}
@@ -2058,7 +2140,8 @@ func (m Model) viewSessionList() string {
 			}
 		}
 
-		if item.IsSession {
+		switch item.Type {
+		case ItemTypeSession:
 			session := m.sessions[item.SessionIndex]
 			sessionNum++
 
@@ -2086,10 +2169,17 @@ func (m Model) viewSessionList() string {
 			}
 
 			b.WriteString(ui.RenderSessionRow(session.Name, session.LastActivity, layout, opts, m.rowWidth()))
-		} else {
+
+		case ItemTypeWindow:
 			session := m.sessions[item.SessionIndex]
 			window := session.Windows[item.WindowIndex]
-			b.WriteString(ui.RenderWindowRow(window.Index, window.Name, ui.WindowRowOpts{Selected: selected}, m.rowWidth()))
+			b.WriteString(ui.RenderWindowRow(window.Index, window.Name, ui.WindowRowOpts{Selected: selected, Expanded: window.Expanded}, m.rowWidth()))
+
+		case ItemTypePane:
+			session := m.sessions[item.SessionIndex]
+			window := session.Windows[item.WindowIndex]
+			pane := window.Panes[item.PaneIndex]
+			b.WriteString(ui.RenderPaneRow(pane.Index, pane.Command, pane.Active, ui.PaneRowOpts{Selected: selected}, m.rowWidth()))
 		}
 		b.WriteString("\n")
 		contentLines++

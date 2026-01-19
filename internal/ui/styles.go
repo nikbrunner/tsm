@@ -63,6 +63,17 @@ var (
 				Bold(true).
 				Background(Colors.Bg.Selected)
 
+	// Pane row styles (further indented)
+	PaneStyle = lipgloss.NewStyle().
+			Padding(0, 1).
+			PaddingLeft(14)
+
+	PaneSelectedStyle = lipgloss.NewStyle().
+				Padding(0, 1).
+				PaddingLeft(14).
+				Bold(true).
+				Background(Colors.Bg.Selected)
+
 	// Text styles
 	IndexStyle = lipgloss.NewStyle().
 			Foreground(Colors.Fg.Subtle).

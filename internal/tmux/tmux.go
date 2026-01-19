@@ -20,8 +20,17 @@ type Session struct {
 
 // Window represents a tmux window
 type Window struct {
-	Index int
-	Name  string
+	Index    int
+	Name     string
+	Panes    []Pane
+	Expanded bool
+}
+
+// Pane represents a tmux pane
+type Pane struct {
+	Index   int
+	Command string // Current command running in the pane
+	Active  bool   // Active pane in the window
 }
 
 // CurrentSession returns the name of the current tmux session
@@ -153,5 +162,54 @@ func SwitchClient(target string) error {
 // SelectWindow selects a specific window in the current client
 func SelectWindow(sessionName string, windowIndex int) error {
 	target := fmt.Sprintf("%s:%d", sessionName, windowIndex)
+	return exec.Command("tmux", "switch-client", "-t", target).Run()
+}
+
+// ListPanes returns all panes for a given session and window
+func ListPanes(sessionName string, windowIndex int) ([]Pane, error) {
+	target := fmt.Sprintf("%s:%d", sessionName, windowIndex)
+	out, err := exec.Command("tmux", "list-panes", "-t", target, "-F", "#{pane_index}:#{pane_current_command}:#{pane_active}").Output()
+	if err != nil {
+		return nil, err
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) == 0 || (len(lines) == 1 && lines[0] == "") {
+		return []Pane{}, nil
+	}
+
+	var panes []Pane
+	for _, line := range lines {
+		parts := strings.SplitN(line, ":", 3)
+		if len(parts) != 3 {
+			continue
+		}
+
+		index, err := strconv.Atoi(parts[0])
+		if err != nil {
+			continue
+		}
+
+		active := parts[2] == "1"
+
+		panes = append(panes, Pane{
+			Index:   index,
+			Command: parts[1],
+			Active:  active,
+		})
+	}
+
+	return panes, nil
+}
+
+// KillPane kills a tmux pane
+func KillPane(sessionName string, windowIndex, paneIndex int) error {
+	target := fmt.Sprintf("%s:%d.%d", sessionName, windowIndex, paneIndex)
+	return exec.Command("tmux", "kill-pane", "-t", target).Run()
+}
+
+// SelectPane switches to a specific pane
+func SelectPane(sessionName string, windowIndex, paneIndex int) error {
+	target := fmt.Sprintf("%s:%d.%d", sessionName, windowIndex, paneIndex)
 	return exec.Command("tmux", "switch-client", "-t", target).Run()
 }
