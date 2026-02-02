@@ -14,6 +14,10 @@ ifeq ($(shell uname),Darwin)
 	xattr -c $(INSTALL_DIR)/$(BINARY_NAME)
 endif
 	@echo "Installed $(BINARY_NAME) to $(INSTALL_DIR)"
+	@# Install Claude Code hook script
+	cp hooks/helm-hook.sh $(INSTALL_DIR)/helm-hook
+	chmod +x $(INSTALL_DIR)/helm-hook
+	@echo "Installed helm-hook to $(INSTALL_DIR)"
 
 clean:
 	rm -f $(BINARY_NAME)
