@@ -82,7 +82,7 @@ Initialize config file:
 helm init
 ```
 
-Config location: `~/.config/black-atom/helm/config.yml`
+Config location: `~/.config/black-atom/helm-tmux/config.yml`
 
 ## Repository Management
 
@@ -130,8 +130,8 @@ Display Claude Code status for each session with an animated indicator.
 1. Copy the hook script:
 
    ```sh
-   cp hooks/helm-hook.sh ~/.local/bin/
-   chmod +x ~/.local/bin/helm-hook.sh
+   cp hooks/helm-tmux-hook.sh ~/.local/bin/
+   chmod +x ~/.local/bin/helm-tmux-hook.sh
    ```
 
 2. Add hooks to your `~/.claude/settings.json`:
@@ -144,7 +144,7 @@ Display Claude Code status for each session with an animated indicator.
            "hooks": [
              {
                "type": "command",
-               "command": "~/.local/bin/helm-hook.sh SessionStart"
+               "command": "~/.local/bin/helm-tmux-hook.sh SessionStart"
              }
            ]
          }
@@ -154,7 +154,7 @@ Display Claude Code status for each session with an animated indicator.
            "hooks": [
              {
                "type": "command",
-               "command": "~/.local/bin/helm-hook.sh PreToolUse"
+               "command": "~/.local/bin/helm-tmux-hook.sh PreToolUse"
              }
            ]
          }
@@ -162,7 +162,10 @@ Display Claude Code status for each session with an animated indicator.
        "Stop": [
          {
            "hooks": [
-             { "type": "command", "command": "~/.local/bin/helm-hook.sh Stop" }
+             {
+               "type": "command",
+               "command": "~/.local/bin/helm-tmux-hook.sh Stop"
+             }
            ]
          }
        ],
@@ -171,7 +174,7 @@ Display Claude Code status for each session with an animated indicator.
            "hooks": [
              {
                "type": "command",
-               "command": "~/.local/bin/helm-hook.sh Notification"
+               "command": "~/.local/bin/helm-tmux-hook.sh Notification"
              }
            ]
          }
@@ -181,7 +184,7 @@ Display Claude Code status for each session with an animated indicator.
            "hooks": [
              {
                "type": "command",
-               "command": "~/.local/bin/helm-hook.sh SessionEnd"
+               "command": "~/.local/bin/helm-tmux-hook.sh SessionEnd"
              }
            ]
          }
@@ -190,7 +193,7 @@ Display Claude Code status for each session with an animated indicator.
    }
    ```
 
-3. Enable in config (`~/.config/black-atom/helm/config.yml`):
+3. Enable in config (`~/.config/black-atom/helm-tmux/config.yml`):
 
    ```yaml
    claude_status_enabled: true
@@ -214,16 +217,16 @@ Display Pi agent status for each session with an animated indicator.
 
    ```sh
    # Hook script (called by the extension)
-   cp hooks/helm-pi-hook.sh ~/.local/bin/
-   chmod +x ~/.local/bin/helm-pi-hook.sh
+   cp hooks/helm-tmux-pi-hook.sh ~/.local/bin/
+   chmod +x ~/.local/bin/helm-tmux-pi-hook.sh
 
    # Pi extension (auto-discovered)
-   cp hooks/helm-pi-status.ts ~/.pi/agent/extensions/
+   cp hooks/helm-tmux-pi-status.ts ~/.pi/agent/extensions/
    ```
 
 2. Restart Pi (or use `/reload`)
 
-3. Enable in config (`~/.config/black-atom/helm/config.yml`):
+3. Enable in config (`~/.config/black-atom/helm-tmux/config.yml`):
 
    ```yaml
    pi_status_enabled: true

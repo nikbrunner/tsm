@@ -9,8 +9,8 @@ build:
 install: build install-hooks
 	mkdir -p $(INSTALL_DIR)
 	ln -sf $(CURDIR)/$(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)
-	ln -sf $(CURDIR)/hooks/helm-hook.sh $(INSTALL_DIR)/helm-hook
-	@echo "Installed $(BINARY_NAME) and helm-hook to $(INSTALL_DIR) (symlinks)"
+	ln -sf $(CURDIR)/hooks/helm-tmux-hook.sh $(INSTALL_DIR)/helm-tmux-hook
+	@echo "Installed $(BINARY_NAME) and helm-tmux-hook to $(INSTALL_DIR) (symlinks)"
 
 install-hooks:
 	git config core.hooksPath .githooks

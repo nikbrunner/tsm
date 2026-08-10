@@ -1,18 +1,18 @@
 /**
  * Helm Pi Status Extension
  *
- * Writes Pi status to ~/.cache/helm/<session>.pi-status
+ * Writes Pi status to ~/.cache/helm-tmux/<session>.pi-status
  * so helm can display it in the session list.
  *
  * Events: session_start, agent_start, agent_end, session_shutdown
  *
  * Installation:
- *   1. Copy helm-pi-hook.sh to ~/.local/bin/
- *      cp hooks/helm-pi-hook.sh ~/.local/bin/
- *      chmod +x ~/.local/bin/helm-pi-hook.sh
+ *   1. Copy helm-tmux-pi-hook.sh to ~/.local/bin/
+ *      cp hooks/helm-tmux-pi-hook.sh ~/.local/bin/
+ *      chmod +x ~/.local/bin/helm-tmux-pi-hook.sh
  *
  *   2. Copy this file to ~/.pi/agent/extensions/
- *      cp hooks/helm-pi-status.ts ~/.pi/agent/extensions/
+ *      cp hooks/helm-tmux-pi-status.ts ~/.pi/agent/extensions/
  *
  *   3. Restart Pi (or use /reload)
  */
@@ -20,7 +20,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 export default function (pi: ExtensionAPI) {
-  const hookScript = `${process.env.HOME}/.local/bin/helm-pi-hook.sh`;
+  const hookScript = `${process.env.HOME}/.local/bin/helm-tmux-pi-hook.sh`;
 
   function callHook(event: string) {
     try {

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Pi status hook - writes status to ~/.cache/helm/<session>.pi-status
+# Pi status hook - writes status to ~/.cache/helm-tmux/<session>.pi-status
 # Used by helm to display Pi status per session
 #
-# This script is called by the Pi extension (helm-pi-status.ts).
+# This script is called by the Pi extension (helm-tmux-pi-status.ts).
 # See that file for installation instructions.
 
 STATUS_DIR="$HOME/.cache/helm-tmux"

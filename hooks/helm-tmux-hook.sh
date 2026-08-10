@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Claude Code hook - writes status to ~/.cache/helm/
+# Claude Code hook - writes status to ~/.cache/helm-tmux/
 # Used by helm to display Claude status per session
 #
 # Status file format is JSON: {"state":"working","ts":1730000000,"tool":"Bash",...}
