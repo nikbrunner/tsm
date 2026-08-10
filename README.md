@@ -1,10 +1,10 @@
-# helm
+# Helm for tmux
 
-> Take the helm of your tmux workspaces.
+> Take the helm of your tmux workspaces. See also [helm.herdr](https://github.com/black-atom-industries/helm.herdr) for the Herdr version.
 
 A TUI for managing tmux sessions — quick switching, fuzzy filtering, and workspace organization. Built with [Bubbletea](https://github.com/charmbracelet/bubbletea).
 
-Part of the [Black Atom Industries](https://github.com/black-atom-industries) cockpit - pairs with [radar.nvim](https://github.com/black-atom-industries/radar.nvim) for file navigation.
+Part of the [Black Atom Industries](https://github.com/black-atom-industries) cockpit — pairs with [radar.nvim](https://github.com/black-atom-industries/radar.nvim) for file navigation.
 
 ## Features
 
@@ -31,8 +31,8 @@ Part of the [Black Atom Industries](https://github.com/black-atom-industries) co
 ### Build and Install
 
 ```sh
-git clone https://github.com/black-atom-industries/helm.git
-cd helm
+git clone https://github.com/black-atom-industries/helm.tmux.git
+cd helm.tmux
 make install
 ```
 
@@ -257,7 +257,7 @@ Sessions show Pi status as a single animated character (same visual style as Cla
 
 ## Project Tracking
 
-Issues are tracked in [GitHub Issues](https://github.com/black-atom-industries/helm/issues) with the `helm` label.
+Issues are tracked in [GitHub Issues](https://github.com/black-atom-industries/helm.tmux/issues) with the `helm` label.
 
 ## License
 
