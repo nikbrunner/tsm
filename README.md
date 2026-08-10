@@ -115,7 +115,7 @@ All commands support `--json` for machine-readable output.
 Configure a command to run on each dirty repo:
 
 ```yaml
-# ~/.config/black-atom/helm/config.yml
+# ~/.config/black-atom/helm-tmux/config.yml
 dirty_walkthrough_command: "lazygit -p {}"
 ```
 
