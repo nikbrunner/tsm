@@ -5,7 +5,7 @@
 # This script is called by the Pi extension (helm-pi-status.ts).
 # See that file for installation instructions.
 
-STATUS_DIR="$HOME/.cache/helm"
+STATUS_DIR="$HOME/.cache/helm-tmux"
 mkdir -p "$STATUS_DIR"
 
 # Get tmux session name

@@ -7,7 +7,7 @@ const (
 	AppName = "BLACK ATOM HELM"
 
 	// Directory and file names
-	AppDirName        = "helm"
+	AppDirName        = "helm-tmux"
 	ConfigFileName    = "config.yml"
 	BookmarksFileName = "bookmarks.yml"
 	StatusFileExt     = ".status"
@@ -16,5 +16,5 @@ const (
 
 // ConfigDirName returns the relative path for config files under ~/.config/
 func ConfigDirName() string {
-	return filepath.Join("black-atom", "helm")
+	return filepath.Join("black-atom", "helm-tmux")
 }

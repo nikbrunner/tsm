@@ -119,7 +119,7 @@ func TestSaveBookmarksUsesTildePaths(t *testing.T) {
 	t.Setenv("HOME", tmpDir)
 
 	// Create config directory
-	configDir := filepath.Join(tmpDir, ".config", "black-atom", "helm")
+	configDir := filepath.Join(tmpDir, ".config", "black-atom", "helm-tmux")
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestDefaultConfig(t *testing.T) {
 
 func TestPath(t *testing.T) {
 	home := os.Getenv("HOME")
-	expected := filepath.Join(home, ".config", "black-atom", "helm", "config.yml")
+	expected := filepath.Join(home, ".config", "black-atom", "helm-tmux", "config.yml")
 
 	result := Path()
 	if result != expected {
@@ -204,7 +204,7 @@ func TestPath(t *testing.T) {
 
 func TestBookmarksPath(t *testing.T) {
 	home := os.Getenv("HOME")
-	expected := filepath.Join(home, ".config", "black-atom", "helm", "bookmarks.yml")
+	expected := filepath.Join(home, ".config", "black-atom", "helm-tmux", "bookmarks.yml")
 
 	result := BookmarksPath()
 	if result != expected {
@@ -224,7 +224,7 @@ func TestSaveAndLoadBookmarks(t *testing.T) {
 	t.Setenv("HOME", tmpDir)
 
 	// Create config directory
-	configDir := filepath.Join(tmpDir, ".config", "black-atom", "helm")
+	configDir := filepath.Join(tmpDir, ".config", "black-atom", "helm-tmux")
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -274,7 +274,7 @@ func TestBookmarksFileTakesPriorityOverConfig(t *testing.T) {
 	t.Setenv("HOME", tmpDir)
 
 	// Create config directory
-	configDir := filepath.Join(tmpDir, ".config", "black-atom", "helm")
+	configDir := filepath.Join(tmpDir, ".config", "black-atom", "helm-tmux")
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		t.Fatal(err)
 	}

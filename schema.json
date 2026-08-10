@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://raw.githubusercontent.com/black-atom-industries/helm/main/schema.json",
+  "$id": "https://raw.githubusercontent.com/black-atom-industries/helm.tmux/main/schema.json",
   "title": "Helm Configuration",
   "description": "Configuration schema for helm - tmux session manager TUI",
   "type": "object",

@@ -5,7 +5,7 @@
 # Status file format is JSON: {"state":"working","ts":1730000000,"tool":"Bash",...}
 # helm also still parses the legacy "state:timestamp" format.
 
-STATUS_DIR="$HOME/.cache/helm"
+STATUS_DIR="$HOME/.cache/helm-tmux"
 mkdir -p "$STATUS_DIR"
 
 # Read JSON from stdin (required by Claude Code hooks)

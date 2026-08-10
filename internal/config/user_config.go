@@ -253,7 +253,7 @@ func Init() error {
 	}
 
 	// Write minimal config — schema descriptions provide documentation
-	content := `# yaml-language-server: $schema=https://raw.githubusercontent.com/black-atom-industries/helm/main/schema.json
+	content := `# yaml-language-server: $schema=https://raw.githubusercontent.com/black-atom-industries/helm.tmux/main/schema.json
 appearance: dark
 project_dirs:
   - ~/repos
