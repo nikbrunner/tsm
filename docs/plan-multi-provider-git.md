@@ -343,7 +343,7 @@ helm repos add black-atom-industries/helm
 ### Self-hosted (with config)
 
 ```yaml
-# ~/.config/black-atom/helm/config.yml
+# ~/.config/black-atom/helm-tmux/config.yml
 git_providers:
   git.corp.example.com: corp
 ```

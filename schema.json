@@ -90,7 +90,7 @@
     "cache_dir": {
       "type": "string",
       "description": "Directory for status cache files",
-      "default": "~/.cache/helm"
+      "default": "~/.cache/helm-tmux"
     },
     "project_dirs": {
       "type": "array",
@@ -130,7 +130,7 @@
     },
     "bookmarks": {
       "type": "array",
-      "description": "Quick-access session bookmarks (slots 1-9, maps to M-1 through M-9). Use 'helm tmux-bindings' to generate tmux keybindings. Note: Bookmarks are stored separately in ~/.config/black-atom/helm/bookmarks.yml.",
+      "description": "Quick-access session bookmarks (slots 1-9, maps to M-1 through M-9). Use 'helm tmux-bindings' to generate tmux keybindings. Note: Bookmarks are stored separately in ~/.config/black-atom/helm-tmux/bookmarks.yml.",
       "items": {
         "type": "object",
         "properties": {

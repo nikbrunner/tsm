@@ -40,7 +40,7 @@ internal/
     help.go               # ? keymap overlay
     scrolllist.go         # Generic scrollable list with filtering
     theme/                # Black Atom theme registry + generated themes (make themes)
-  config/config.go        # YAML config (~/.config/black-atom/helm/config.yml)
+  config/config.go        # YAML config (~/.config/black-atom/helm-tmux/config.yml)
   tmux/tmux.go            # tmux command wrappers (list, switch, kill)
   agent/
     status.go             # Agent (Claude Code, Pi) status file parsing
@@ -49,7 +49,7 @@ internal/
     status.go             # Git status per session (dirty, ahead/behind)
     repo.go               # Repo sync state (clean/dirty/ahead/behind/diverged)
   giturl/github.go         # Git URL parsing, clone, and GitHub API
-hooks/helm-hook.sh        # Claude Code hook for status updates
+hooks/helm-tmux-hook.sh   # Claude Code hook for status updates
 ```
 
 ### Bubbletea Model Flow
@@ -96,14 +96,14 @@ per-mode `Action` lists in `internal/ui/sidebar.go` — there are no button rows
 
 ## Configuration
 
-Config file: `~/.config/black-atom/helm/config.yml`
+Config file: `~/.config/black-atom/helm-tmux/config.yml`
 
 ```yaml
 theme: black-atom-jpn-koyo-yoru # Black Atom theme (empty = terminal ANSI colors)
 layout: ide # Layout script for new sessions
 layout_dir: ~/.config/tmux/layouts
 claude_status_enabled: true # Show CC status indicator
-cache_dir: ~/.cache/helm
+cache_dir: ~/.cache/helm-tmux
 dirty_walkthrough_command: "lazygit -p {}" # Command for 'helm repos dirty --walk'
 ```
 
@@ -145,7 +145,7 @@ Then read `/tmp/helm_test.png` to visually verify the UI looks correct.
 
 ## Agent Status Integration (Claude Code, Pi)
 
-The hook (`hooks/helm-hook.sh`) writes JSON status files to `~/.cache/helm/<session>.<session_id>.status` — one file per agent instance, so multiple Claude instances in one tmux session don't overwrite each other (`{"state","ts","tool","session_id","transcript","cwd"}`; the legacy un-suffixed `state:timestamp` format still parses). The TUI polls these every second (`internal/agent`) and shows animated status indicators per session:
+The hook (`hooks/helm-tmux-hook.sh`) writes JSON status files to `~/.cache/helm-tmux/<session>.<session_id>.status` — one file per agent instance, so multiple Claude instances in one tmux session don't overwrite each other (`{"state","ts","tool","session_id","transcript","cwd"}`; the legacy un-suffixed `state:timestamp` format still parses). The TUI polls these every second (`internal/agent`) and shows animated status indicators per session:
 
 - `⠤⠆⠒⠰` (spinner) - Claude actively processing
 - `?` - Claude waiting (0–5 min)
@@ -162,7 +162,7 @@ Because hooks don't fire on crash or SIGKILL, each poll also verifies via a proc
 
 ## Project Tracking
 
-Issues are tracked in [GitHub Issues](https://github.com/black-atom-industries/helm/issues) with the `helm` label.
+Issues are tracked in [GitHub Issues](https://github.com/black-atom-industries/helm.tmux/issues) with the `helm` label.
 
 Use the `gh` CLI to query and manage issues directly from Claude Code:
 
