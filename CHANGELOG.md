@@ -1,5 +1,72 @@
 # Changelog
 
+## [0.8.0](https://github.com/black-atom-industries/helm.tmux/compare/v0.7.0...v0.8.0) (2026-08-16)
+
+
+### Features
+
+* add JSON Schema for config validation and completion ([b4cf5cb](https://github.com/black-atom-industries/helm.tmux/commit/b4cf5cbca651f77b7f82db4c82305f449b5a15d5))
+* **agents:** AGENTS panel, per-pane idents, hint bar, help overlay ([14bb552](https://github.com/black-atom-industries/helm.tmux/commit/14bb552728953815d7d030b8f19fcb6ae9e92278))
+* **cli:** add --initial-view flag and visual test tooling ([08b0ed2](https://github.com/black-atom-industries/helm.tmux/commit/08b0ed2b50632452b22c94f43b95cd8a48bc1996))
+* **clone:** add choice menu to C-d with URL input for arbitrary repos ([f4197d3](https://github.com/black-atom-industries/helm.tmux/commit/f4197d3cd7a6d106145cc9fdeb63eba809fbb75e))
+* **config:** add enable_layouts option ([5092778](https://github.com/black-atom-industries/helm.tmux/commit/5092778e237238c03736a59ebba30d3ec1097770))
+* **fuzzy:** add segment-aware fuzzy matching for path-like strings ([1248d58](https://github.com/black-atom-industries/helm.tmux/commit/1248d5880c333a2b8371c30418508adb95c5032e))
+* **giturl:** support multiple git providers with provider-aware directory resolution ([7a253d4](https://github.com/black-atom-industries/helm.tmux/commit/7a253d4c7218cdf443fdf3b1fcbb6513ac6d73c2))
+* **giturl:** support non-GitHub hosts, rename internal/github to internal/giturl ([a334d6e](https://github.com/black-atom-industries/helm.tmux/commit/a334d6ee1d68c4f012e52804a4441933553d4027))
+* initialize OpenSpec with 10 behavioral specs ([5115fd0](https://github.com/black-atom-industries/helm.tmux/commit/5115fd0a06f0277aac1edadec644dede740c0467))
+* **model:** populate initial view data on startup ([0039ca0](https://github.com/black-atom-industries/helm.tmux/commit/0039ca058fb3df9119ae79f1e860b9b2c7c1429f))
+* move action buttons to bottom bar ([a2d05a8](https://github.com/black-atom-industries/helm.tmux/commit/a2d05a8b4c84d5a4016d4c23ba9d0c3da279d40d))
+* **pi:** add Pi agent status integration ([3e0af7d](https://github.com/black-atom-industries/helm.tmux/commit/3e0af7d62c336836cceadd5f567b2081c464c309))
+* **pi:** add post-task build hook that runs make build on agent_end ([0f4ef23](https://github.com/black-atom-industries/helm.tmux/commit/0f4ef231b5b5b498783609c8d371e51db0021122))
+* pin current session at top of session list ([7844884](https://github.com/black-atom-industries/helm.tmux/commit/78448841b76c7c97cbffd9c71b6523eb201dee59))
+* **status:** truthful agent status via polling and liveness checks ([b822f63](https://github.com/black-atom-industries/helm.tmux/commit/b822f63c35b91b53942cc6e9d19c329149467d9d))
+* **theme:** integrate Black Atom themes as adapter ([86da168](https://github.com/black-atom-industries/helm.tmux/commit/86da1686298610561dfbf521d666f9df062e6764))
+* **theme:** surface accent ramp on structural slots ([30ea6a9](https://github.com/black-atom-industries/helm.tmux/commit/30ea6a9273e8793ff293c7d04fb603020a74f0eb))
+* **ui:** add cursor indicator to filter prompt ([c27b362](https://github.com/black-atom-industries/helm.tmux/commit/c27b362906c6cecc806ebe7ec28e4d9eddded09e))
+* **ui:** add sidebar with action buttons and simplified footer ([50a2c66](https://github.com/black-atom-industries/helm.tmux/commit/50a2c6656e94a9d1a610ecd1eb3757822ad82cb2))
+* **ui:** condense action buttons to compact LABEL [keybind] format ([38bfbde](https://github.com/black-atom-industries/helm.tmux/commit/38bfbde8be627d3992f7571ca436867f6b836217))
+* **ui:** derive theme from terminal colors via reverse video ([b308380](https://github.com/black-atom-industries/helm.tmux/commit/b308380dd3e1b514647e90813e8033af2b00712a))
+* **ui:** expand mode labels to full ALL CAPS descriptions ([a447749](https://github.com/black-atom-industries/helm.tmux/commit/a4477498529cf7d228c7cbd6f79c36b8aad4e265))
+* **ui:** move action buttons from sidebar to bottom bar ([d46fe97](https://github.com/black-atom-industries/helm.tmux/commit/d46fe9721889532b8071e83e4e6f3895137de693))
+* **ui:** reorder sidebar action buttons ([f36b8bc](https://github.com/black-atom-industries/helm.tmux/commit/f36b8bcf7d7435ff16a6af2a43c27f261e1a5c9c))
+* **ui:** show sidebar in all view modes and reorder buttons ([f3dad92](https://github.com/black-atom-industries/helm.tmux/commit/f3dad92b7970526bbc8937caf3f0545997c82205))
+* **ui:** use full ALL CAPS labels with centered text in sidebar buttons ([0860282](https://github.com/black-atom-industries/helm.tmux/commit/08602828a7192c1d5c1e5470a35bba4369e4addd))
+
+
+### Bug Fixes
+
+* **bookmarks:** make Enter confirm bookmark add when picker opened from bookmarks ([7887ec4](https://github.com/black-atom-industries/helm.tmux/commit/7887ec425baa21f20e83b5556f0c562c292d3444))
+* **config:** respect enable_layouts option for layout application ([5092778](https://github.com/black-atom-industries/helm.tmux/commit/5092778e237238c03736a59ebba30d3ec1097770))
+* **config:** unify session name extraction between CLI and TUI ([aacdcf9](https://github.com/black-atom-industries/helm.tmux/commit/aacdcf97efd5daf56de0a01d2720fcdbb232dbdd))
+* contract bookmark paths to ~ on save ([108598e](https://github.com/black-atom-industries/helm.tmux/commit/108598eb101f31d638bf9b05b840f802b8dfe821))
+* **fuzzy:** match filter pattern against any path segment ([c8f98e5](https://github.com/black-atom-industries/helm.tmux/commit/c8f98e5777fec5c259dbcb62db566819b11670e3))
+* **giturl:** default github.com clones to bare owner/repo paths ([bafdf8d](https://github.com/black-atom-industries/helm.tmux/commit/bafdf8dba5b829233b98d9977c558047e8cc9bed))
+* **giturl:** strip leading tilde from provider paths ([b1be5e9](https://github.com/black-atom-industries/helm.tmux/commit/b1be5e99f0a1f681e60accb0fd4a8b3c30f4e9fb))
+* **lazygit:** wait for tmux submit so popup opens reliably ([f9364bd](https://github.com/black-atom-industries/helm.tmux/commit/f9364bd7b5c2853666b712e3091afb3634d9467e))
+* **model:** derive clone session name from destination path ([fb1f7bf](https://github.com/black-atom-industries/helm.tmux/commit/fb1f7bf3916baae8798c0dd54bd1be0449eb3bd4))
+* **model:** handle space key correctly ([f0141ed](https://github.com/black-atom-industries/helm.tmux/commit/f0141ed20f77be3b7bad5b4d9b6e94fc5416be1d))
+* **model:** handle space key in all filter modes ([3d16645](https://github.com/black-atom-industries/helm.tmux/commit/3d166455f7f07a0f749bcec4857f47e03184c1ff))
+* **model:** handle space key in filter input ([70777d8](https://github.com/black-atom-industries/helm.tmux/commit/70777d83f2b416bb8b396dc67d09c7813784df1e))
+* **model:** search project list by full display path, not just basename ([2e19d8c](https://github.com/black-atom-industries/helm.tmux/commit/2e19d8cf39a45fa4be4e315d7360848fa457b860))
+* **model:** use full path for project picker filter matching ([abac0f1](https://github.com/black-atom-industries/helm.tmux/commit/abac0f1430ace5134ec9bd677cbb5c17ed56244a))
+* prevent tmux session prefix matching for exists/switch checks ([88dd167](https://github.com/black-atom-industries/helm.tmux/commit/88dd1672d132cd8172d1f8964233fc9889a68fc3))
+* **ui:** add selected background to FilterStyle for light mode readability ([6a7b909](https://github.com/black-atom-industries/helm.tmux/commit/6a7b909178536897c1ea7eb41809248ca6511987))
+* **ui:** align self-session index marker and use solid footer border ([8297d49](https://github.com/black-atom-industries/helm.tmux/commit/8297d495b3b8018226d7efb94a97cffa6190c908))
+* **ui:** correct layout overhead for new 3-line footer ([69e892d](https://github.com/black-atom-industries/helm.tmux/commit/69e892d3c99838f3774f11f09bc8d6275256d981))
+* **ui:** hide scrollbar for pinned self-session row ([45ae3a5](https://github.com/black-atom-industries/helm.tmux/commit/45ae3a5043b9fc84941967efb19db85f5d828c02))
+* **ui:** keep per-cell colors on selected rows ([49bcb6a](https://github.com/black-atom-industries/helm.tmux/commit/49bcb6af9fd90b42735a80293f97c92dfb618c78))
+* **ui:** restore ModeCreate input, fix footer padding, cap list width ([ce601a0](https://github.com/black-atom-industries/helm.tmux/commit/ce601a0bba53f2dad72e09fa51f728cfa56fcaa1))
+* **ui:** restore sidebar box borders in bookmarks mode ([b089aa5](https://github.com/black-atom-industries/helm.tmux/commit/b089aa5f1e33a9f637c446a10214a5947fc9c9b3))
+* **ui:** show mode-specific sidebar actions for kill and create ([710c352](https://github.com/black-atom-industries/helm.tmux/commit/710c3528a3ec0935a19afad41f94ed1acadd2425))
+* **ui:** use full block cursor, handle space in KeyRunes ([24caf72](https://github.com/black-atom-industries/helm.tmux/commit/24caf72183ff68b2913f391a82a4a148b312d30a))
+
+
+### Documentation
+
+* add repos add command to README ([62497cd](https://github.com/black-atom-industries/helm.tmux/commit/62497cdd4fd65e39b5844f4360b026713aa68291))
+* remove open git remote design document ([7a4b4df](https://github.com/black-atom-industries/helm.tmux/commit/7a4b4df004577368e8c889fda91e6782783557fa))
+* replace stale Linear reference with GitHub Issues link ([e4b7aa0](https://github.com/black-atom-industries/helm.tmux/commit/e4b7aa0b8cfe229a57361d4190a887bdabdfd59b))
+
 ## [0.7.0](https://github.com/black-atom-industries/helm/compare/v0.6.0...v0.7.0) (2026-03-21)
 
 ### Features
